@@ -12,12 +12,12 @@ def p_program(p):
 	'''program		: imports CLASS ID prog_inh class_block'''
 
 def p_prog_inh(p):
-	'''prog_inh		: inherits ID
+	'''prog_inh		: INHERITS ID
 								| empty'''
 
 #IMPORTS
 def p_imports(p):
-	'''imports			: IMPORT CTE_STRING ';'' more_imports'''
+	'''imports			: IMPORT CONST_STRING ';' more_imports'''
 
 def p_more_imports(p):
 	'''more_imports	: imports
@@ -34,8 +34,8 @@ def p_class_block(p):
 	'''class_block				: '{' class_blck_body '}' '''
 
 def p_class_blck_body(p):
-	'''p_class_blck_body	: class_vars class_asgs class_func
-												| class_func'''
+	'''class_blck_body	: class_vars class_asgs class_func
+											| class_func'''
 
 def p_class_vars(p):
 	'''class_vars					: access var_decl more_class_vars'''
@@ -56,7 +56,7 @@ def p_class_func(p):
 def p_access(p):
 	'''access			: acc_scope dependent'''
 
-def p_acc_scope(p):
+def p_acc_scope(p): # CONFLICT: shift/reduce. Posible solucion es cambiar las palabras reservadas PUBLIC/PRIVATE a un solo token llamado SCOPE.
 	'''acc_scope	: PUBLIC
 								| PRIVATE'''
 
@@ -81,11 +81,11 @@ def p_vars_type(p):
 	        				| ID vars_tp_b'''
 
 def p_vars_tp_a(p):
-	'''vars_tp_a		: = expression
+	'''vars_tp_a		: '=' expression
 	   				    	| empty'''
 
 def p_vars_tp_b(p):
-	'''vars_tp_b		: = vars_assgn
+	'''vars_tp_b		: '=' vars_assgn
 	   					    | empty'''
 
 def p_vars_assgn(p):
@@ -99,15 +99,15 @@ def p_ver_mat_type(p):
 
 #VECTOR
 def p_vector(p):
-	'''vector		: VEC ids ':' vec_mat_type '[' CTE_I ']' vec_assgn ';' '''
+	'''vector		: VEC ids ':' vec_mat_type '[' CONST_I ']' vec_assgn ';' '''
 
 def p_vec_assgn(p):
-'''vec_assgn	: '=' vector_exp
-							| empty'''
+	'''vec_assgn	: '=' vector_exp
+								| empty'''
 
 #MATRIX
 def p_matrix(p):
-	'''matrix			: MAT ids ':' vec_mat_type '[' CTE_I ',' CTE_I ']' mat_assgn ';' '''
+	'''matrix			: MAT ids ':' vec_mat_type '[' CONST_I ',' CONST_I ']' mat_assgn ';' '''
 
 def p_mat_assgn(p):
 	'''mat_assgn	: '=' matrix_exp
@@ -162,7 +162,7 @@ def p_mat_more(p):
 								| empty'''
 
 #MAT_VEC_ACCESS
-def p_matrix_exp(p):
+def p_mat_vec_access(p):
 	'''mat_vec_access	: '[' mat_vec_index mat_access ']' '''
 
 def p_mat_vec_index(p):
@@ -175,7 +175,7 @@ def p_mat_access(p):
 
 #METHOD
 def p_method(p):
-	'''method			: func_spec '(' method_param ')' block '''
+	'''method			: func_spec '(' method_param ')' block'''
 
 def p_func_spec(p):
 	'''func_spec	: access func_type kw_func ID
@@ -277,8 +277,8 @@ def p_print_exp(p):
 	'''print_exp	: print_val print_more'''
 
 def p_print_val(p):
-	'''print_val	: expression
-								| CTE_STRING'''
+	'''print_val	: expression'''
+#								| CONST_STRING Esta produccion generaba un conflicto shift/reduce ya que se puede llegar a la produccion de CONST_STRING mediante expression
 
 def p_print_more(p):
 	'''print_more	: ',' print_exp
@@ -294,13 +294,13 @@ def p_ret_val(p):
 
 #EXPRESSION
 def p_expression(p):
-	'''expression	: rel_expression exp_op'''
+	'''expression			: rel_expression expression_op'''
 
-def exp_op(p):
-	'''exp_op			: AND expression
-								| OR expression
-								| XOR expression
-								| empty'''
+def p_expression_op(p):
+	'''expression_op	: AND expression
+										| OR expression
+										| XOR expression
+										| empty'''
 
 #REL_EXPRESSION_1
 def p_rel_expression(p):
@@ -326,16 +326,16 @@ def p_rel_exp_1_op(p):
 def p_exp(p):
 	'''exp		: term exp_op'''
 
-def exp_op(p):
+def p_exp_op(p):
 	'''exp_op	: '+' exp
-						| '-' exo
+						| '-' exp
 						| empty'''
 
 #TERM
 def p_term(p):
 	'''term		: factor term_op'''
 
-def p_exp_op(p):
+def p_term_op(p):
 	'''term_op	: '*' term
 							| '/' term
 							| '%' term
@@ -350,11 +350,11 @@ def p_type(p):
 
 #VAR_CTE
 def p_var_cte(p):
-	'''var_cte	: CTE_I
-							| CTE_F
-							| CTE_CHAR
-							| CTE_STRING
-							| CTE_BOOL'''
+	'''var_cte	: CONST_I
+							| CONST_F
+							| CONST_CHAR
+							| CONST_STRING
+							| CONST_BOOL'''
 
 #FACTOR
 def p_factor(p):
@@ -370,7 +370,22 @@ def p_fact_body(p):
 								| var_cte
 								| ID fact_id'''
 
+
 def p_fact_id(p):
 	'''fact_id		: func_call
-								| id_access
-								| empty'''
+								| id_access'''
+#								| empty'''   CONFLICTO: Esta produccion genera 18 conf red/red, ya que la regla id_access ya maneja una produccion empty.
+
+
+#ERROR
+def p_error(p):
+	print("Syntax error in input!")
+
+
+#EMPTY
+def p_empty(p):
+	'''empty	: '''
+	pass
+
+
+yacc.yacc()
