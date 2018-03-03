@@ -29,12 +29,6 @@ reservedWords = {
   'print': 'PRINT',
   'scan': 'SCAN',
   'return': 'RETURN',
-  'and': 'AND',
-  'AND': 'AND',
-  'or': 'OR',
-  'OR': 'OR',
-  'xor': 'XOR',
-  'XOR': 'XOR',
   'int': 'INT',
   'double': 'DOUBLE',
   'char': 'CHAR',
@@ -50,13 +44,15 @@ tokens = ['ID',
 'LESS_EQUAL_THAN',
 'GREATER_EQUAL_THAN',
 'EQUAL',
-'NOT_EQUAL']
+'NOT_EQUAL',
+'AND',
+'OR',
+'XOR']
 
 tokens = tokens + list(reservedWords.values())
 
 literals = ['=', '+', '-', '*', '%', '/', '>', '<', '~', '_', ',', ';', ':', '.', '{', '}', '[', ']', '(', ')']
 t_ignore = ' \t'
-
 
 def t_LESS_EQUAL_THAN(t):
 	r'<='
@@ -74,15 +70,27 @@ def t_NOT_EQUAL(t):
 	r'<>'
 	return t
 
-def t_CTE_I(t):
-	r'[0-9]+'
-	return t
+def t_AND(t):
+  r'and|AND'
+  return t
 
-def t_CTE_F(t):
+def t_OR(t):
+  r'or|OR'
+  return t
+
+def t_XOR(t):
+  r'xor|XOR'
+  return t
+
+def t_CONST_F(t):
 	r'[0-9]+\.[0-9]+'
 	return t
 
-def t_CTE_STRING(t):
+def t_CONST_I(t):
+	r'[0-9]+'
+	return t
+
+def t_CONST_STRING(t):
 	r'\"[^\"]*\"'
 	return t
 

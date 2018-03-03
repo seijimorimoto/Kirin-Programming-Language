@@ -1,0 +1,35 @@
+class Person {
+  private var age : int;
+  private var sex : char;
+  private var name : String;
+
+  constructor(a : int, s : char, n : String) {
+    age = a;
+    sex = s;
+    name = n;
+  }
+
+  public int getAge() {
+    return age;
+  }
+
+  public char getSex() {
+    return sex;
+  }
+
+  public String getName() {
+    return name;
+  }
+
+  public void setAge(a : int) {
+    age = a;
+  }
+
+  public void setSex(s : char) {
+    sex = s;
+  }
+
+  public void setName(n : String) {
+    name = n;
+  }
+}
