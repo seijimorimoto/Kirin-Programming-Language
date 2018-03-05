@@ -1,0 +1,10 @@
+class HelloWorld {
+    public_func independent void main() {
+        vec myVec : Int[5];
+        print("Hello World\n", myVec[10]);
+    }
+
+    $
+    // Hola
+    private var x : int;
+}

@@ -16,7 +16,6 @@ def p_prog_inh(p):
 							| empty'''
 
 #IMPORTS
-#TODO: Adjust IMPORTS Syntax Diagram - Add posibility of empty production.
 def p_imports(p):
 	'''imports	: IMPORT CONST_STRING ';' imports
 			   			| empty'''
@@ -61,6 +60,14 @@ def p_acc_scope(p):
 def p_dependent(p):
 	'''dependent	: INDEPENDENT
 								| empty'''
+
+#METHOD_ACCESS
+def p_method_access(p):
+	'''method_access	: met_acc_scope dependent'''
+
+def p_met_acc_scope(p):
+	'''met_acc_scope	: PUBLIC_FUNC
+										| PRIVATE_FUNC'''
 
 #IDS
 def p_ids(p):
@@ -176,7 +183,7 @@ def p_method(p):
 	'''method	: func_spec '(' opt_method_param ')' block'''
 
 def p_func_spec(p):
-	'''func_spec	: access func_type kw_func ID
+	'''func_spec	: method_access func_type ID
 								| CONSTRUCTOR'''
 
 def p_func_type(p):
@@ -184,12 +191,7 @@ def p_func_type(p):
 								| type
 								| ID'''
 
-def p_kw_func(p):
-	'''kw_func	: FUNC
-							| empty'''
-
 #METHOD_PARAM
-#TODO: Adjust METHOD_PARAM Syntax Diagram - Add posibility of empty production since the beginning.
 def p_opt_method_param(p):
 	'''opt_method_param : method_param
 											| empty'''
@@ -272,7 +274,6 @@ def p_while_loop(p):
 	'''while_loop	: WHILE '(' expression ')' block'''
 
 #IN_OUT
-#TODO: Adjust IN_OUT Syntax Diagram - Remove CONST_STRING.
 def p_in_out(p):
 	'''in_out	: PRINT '(' print_exp ')' ';'
 						| SCAN '(' ID id_access ')' ';' '''
@@ -282,7 +283,6 @@ def p_print_exp(p):
 
 def p_print_val(p):
 	'''print_val	: expression'''
-#								| CONST_STRING CONFLICT: This production generated one shift/reduce conflict since it was possible to reach CONST_STRING via expression.
 
 def p_print_more(p):
 	'''print_more	: ',' print_exp
@@ -361,7 +361,6 @@ def p_var_cte(p):
 							| CONST_BOOL'''
 
 #FACTOR
-#TODO: Adjust FACTOR Syntax Diagram - Remove empty production after id.
 def p_factor(p):
 	'''factor	: fact_neg fact_body'''
 
@@ -379,13 +378,12 @@ def p_fact_body(p):
 def p_fact_id(p):
 	'''fact_id	: func_call
 							| id_access'''
-#							| empty'''   CONFLICT: This production generarted 18 conf red/red, since rule id_access managed already an empty production.
 
 
 #ERROR
 def p_error(p):
 	if p:
-		print("Syntax error at token", p.type)
+		print("Line # %d: Syntax error at token %s" % (p.lexer.lineno, p.type))
 	else:
 		print("Syntax error at EOF!")
 

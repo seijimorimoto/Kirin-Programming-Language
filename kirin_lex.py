@@ -12,12 +12,13 @@ reservedWords = {
   'import': 'IMPORT',
   'public': 'PUBLIC',
   'private': 'PRIVATE',
+  'public_func': 'PUBLIC_FUNC',
+  'private_func': 'PRIVATE_FUNC',
   'independent': 'INDEPENDENT',
   'var': 'VAR',
   'vec': 'VEC',
   'mat': 'MAT',
   'void': 'VOID',
-  'func': 'FUNC',
   'constructor': 'CONSTRUCTOR',
   'new': 'NEW',
   'constant': 'CONSTANT',
@@ -53,6 +54,10 @@ tokens = tokens + list(reservedWords.values())
 
 literals = ['=', '+', '-', '*', '%', '/', '>', '<', '~', '_', ',', ';', ':', '.', '{', '}', '[', ']', '(', ')']
 t_ignore = ' \t'
+
+def t_COMMENT(t):
+  r'\/\/.*'
+  pass
 
 def t_LESS_EQUAL_THAN(t):
 	r'<='
@@ -108,8 +113,7 @@ def t_ID(t):
 	return t
 
 def t_error(t):
-	print("%d: Illegal character '%s'" % (t.lexer.lineno, t.value[0]))
-	print(t.value)
+	print("Line # %d: Illegal character '%s'" % (t.lexer.lineno, t.value[0]))
 	t.lexer.skip(1)
 
 def t_newline(t):
