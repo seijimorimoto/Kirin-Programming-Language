@@ -1,0 +1,11 @@
+class DuplicateMethods {
+  private var addition : int;
+
+  private_func void sum(a : int, b : int) {
+    addition = a + b;
+  }
+
+  public_func int sum(a : int, b : int) {
+    return a + b;
+  }
+}

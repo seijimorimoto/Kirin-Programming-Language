@@ -1,0 +1,7 @@
+class DuplicateGlobalVariables2 {
+  private var x, y, z, x : int;
+
+  public_func int suma(a : int, b : int) {
+    return a + b;
+  }
+}

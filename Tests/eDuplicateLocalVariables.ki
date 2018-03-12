@@ -1,0 +1,15 @@
+class DuplicateLocalVariables {
+  private var x, y, z : int;
+  public var w : double;
+
+  public_func void doSomething(a : int, b : int) {
+    var temp1, temp2 : int;
+
+    temp1 = a + b;
+    temp2 = temp1 * temp1;
+
+    var temp1 : int;
+
+    temp1 = temp2 * temp2;
+  }
+}

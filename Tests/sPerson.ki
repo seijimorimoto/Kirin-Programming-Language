@@ -2,6 +2,7 @@ class Person {
   private var age : int;
   private var sex : char;
   private var name : String;
+  public var height : double;
 
   constructor(a : int, s : char, n : String) {
     age = a;

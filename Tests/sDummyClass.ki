@@ -1,0 +1,24 @@
+class DummyClass {
+  private var matricula : int;
+  private var name : String;
+  private var grade : double;
+  public var count : int;
+
+  public_func int getNameLength() {
+    return this.name.length;
+  }
+
+  public_func void setGrade(grade : double) {
+    this.grade = grade; // grade.value is throwing error, but it should be alright. This must be fixed.
+  }
+
+  public_func double calculateAverage(list : int[], n : int)
+  {
+    var i, average : int = 0;
+    for (i = 1; i <= n; i = i + 1) {
+      average = average + list[i];
+    }
+    return average / n;
+  }
+
+}

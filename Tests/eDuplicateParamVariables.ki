@@ -1,0 +1,8 @@
+class DuplicateParamVariables {
+  private var x, y, z : int;
+  public var w : double;
+
+  public_func int suma(a : int, b : int, a : int) {
+    return a + b + a;
+  }
+}
