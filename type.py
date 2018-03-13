@@ -22,4 +22,7 @@ class Type(object):
 		self.primType = primType
 	
 	def __str__(self):
-		return "(%d, %s)" % (self.dim, primTypeMapper.get(self.primType)) 
+		return "(%d, %s)" % (self.dim, primTypeMapper.get(self.primType))
+	
+	def toTuple(self):
+		return (self.dim, self.primType)

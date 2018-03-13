@@ -437,7 +437,8 @@ def p_np_method_6(p):
 			if varTable.has(currentParamIds[index]):
 				print("Error: Parameter '%s' was already defined for '%s' method" % (currentParamIds[index], currentMethod))
 			else:
-				newVarTableRow = VarTableRow(currentParamTypes[index], None, None)
+				dim, primType = currentParamTypes[index]
+				newVarTableRow = VarTableRow(Type(dim, primType), None, None)
 				varTable.add(currentParamIds[index], newVarTableRow)
 
 #METHOD_PARAM
@@ -494,7 +495,7 @@ def p_np_method_param_6(p):
 	'''np_method_param_6	:'''
 	global currentParamIds, currentParamTypes
 	currentParamIds.append(currentParamId)
-	currentParamTypes.append(Type(currentDim, currentType))
+	currentParamTypes.append(Type(currentDim, currentType).toTuple())
 
 #CREATE_OBJ
 def p_create_obj(p):

@@ -8,8 +8,8 @@ class DummyClass {
     return this.name.length;
   }
 
-  public_func void setGrade(grade : double) {
-    this.grade = grade; // grade.value is throwing error, but it should be alright. This must be fixed.
+  public_func void setGrade(grade : Grade) {
+    this.grade = grade.value;
   }
 
   public_func double calculateAverage(list : int[], n : int)
