@@ -3,13 +3,83 @@
 # Jose Juan Zavala Iglesias		| A01281362
 # Angel Seiji Morimoto Burgos	| A01281380
 
+# TODO: Whenever an error occurs and the message is displayed, break the execution of the parser.
 import ply.yacc as yacc
 
 from kirin_lex import tokens
+from funcDirTable import FuncDirTable
+from funcDirRow import FuncDirRow
+from varTableRow import VarTableRow
+
+keywordMapper = {
+	'int': 1,
+	'double': 2,
+	'char': 3,
+	'bool': 4,
+	'object': 5,
+	'class': 6,
+	'void': 7
+}
+
+# Initialize global variables with default values
+funcDirTable = FuncDirTable()
+currentClass = ""
+currentMethod = ""
+currentMethodType = 0
+currentType = 0
+currentDim = 0
+currentVarId = ""
+currentVarIds = []
+currentParamId = ""
+currentParamIds = []
+currentParamTypes = []
+isCurrentVarPrivate = True
+isCurrentVarIndependent = False
+isCurrentMethodPrivate = False
+isCurrentMethodIndependent = False
+refersToClass = False
+
+# Helper methods for checking semantics during parsing process.
+def validateAndAddVarsToScope(dim):
+	for currentVarId in currentVarIds:
+		if currentMethod == "":
+			varTable = funcDirTable.getVarTable(currentClass, None) 
+			if varTable.has(currentVarId):
+				print("Error: Variable '%s' was already defined." % (currentVarId))
+			else:
+				newVarTableRow = VarTableRow((dim, currentType), isCurrentVarIndependent, isCurrentVarPrivate)
+				varTable.add(currentVarId, newVarTableRow)
+		else:
+			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+			if varTable.has(currentVarId):
+				print("Error: Variable '%s' was already defined." % (currentVarId))
+			else:
+				newVarTableRow = VarTableRow((dim, currentType), None, None)
+				varTable.add(currentVarId, newVarTableRow)
+
+def checkIfVariableWasDefined(id):
+	if refersToClass == True or currentMethod == "":
+		varTable = funcDirTable.getVarTable(currentClass, None)
+		if varTable.has(id) == False:
+			print("Error: Variable '%s' was not declared." % (id))
+	else:
+		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+		if varTable.has(id) == False:
+			varTable = funcDirTable.getVarTable(currentClass, None)
+			if varTable.has(id) == False:
+				print("Error: Variable '%s' was not declared." % (id))
 
 #PROGRAM
 def p_program(p):
-	'''program	: imports CLASS ID prog_inh class_block'''
+	'''program	: imports CLASS ID np_program_1 prog_inh class_block'''
+
+#NEURAL POINTS FOR PROGRAM
+def p_np_program_1(p):
+	'''np_program_1	:'''
+	global currentClass, funcDirTable
+	funcDirRow = FuncDirRow("class", False, False)
+	currentClass = p[-1]
+	funcDirTable.add(currentClass, None, funcDirRow)
 
 def p_prog_inh(p):
 	'''prog_inh	: INHERITS ID
@@ -51,39 +121,89 @@ def p_class_func(p):
 
 #ACCESS
 def p_access(p):
-	'''access	: acc_scope dependent'''
+	'''access	: acc_scope np_access_1 acc_dependent'''
 
 def p_acc_scope(p):
 	'''acc_scope	: PUBLIC
 								| PRIVATE'''
+	p[0] = p[1]
 
 def p_dependent(p):
-	'''dependent	: INDEPENDENT
-								| empty'''
+	'''acc_dependent	: INDEPENDENT np_access_2
+								| np_access_3'''
+
+#NEURAL POINTS FOR ACCESS
+def p_np_access_1(p):
+	'''np_access_1	:'''
+	global isCurrentVarPrivate, isCurrentVarIndependent
+	if (p[-1] == "public"):
+		isCurrentVarPrivate = False
+	else:
+		isCurrentVarPrivate = True
+
+def p_np_access_2(p):
+	'''np_access_2	:'''
+	global isCurrentVarIndependent
+	isCurrentVarIndependent = True
+
+def p_np_access_3(p):
+	'''np_access_3	:'''
+	global isCurrentVarIndependent
+	isCurrentVarIndependent = False
 
 #METHOD_ACCESS
 def p_method_access(p):
-	'''method_access	: met_acc_scope dependent'''
+	'''method_access	: met_acc_scope np_method_access_1 met_acc_dependent'''
 
 def p_met_acc_scope(p):
 	'''met_acc_scope	: PUBLIC_FUNC
 										| PRIVATE_FUNC'''
+	p[0] = p[1]
+
+def p_met_acc_dependent(p):
+	'''met_acc_dependent	: INDEPENDENT np_method_access_2
+												|	np_method_access_3'''
+
+#NEURAL POINTS FOR METHOD_ACCESS
+def p_np_method_access_1(p):
+	'''np_method_access_1	:'''
+	global isCurrentMethodPrivate, isCurrentMethodIndependent
+	if p[-1] == "public_func":
+		isCurrentMethodPrivate = False
+	else:
+		isCurrentMethodPrivate = True
+
+def p_np_method_access_2(p):
+	'''np_method_access_2	:'''
+	global isCurrentMethodIndependent
+	isCurrentMethodIndependent = True
+
+def p_np_method_access_3(p):
+	'''np_method_access_3	:'''
+	global isCurrentMethodIndependent
+	isCurrentMethodIndependent = False
 
 #IDS
 def p_ids(p):
-	'''ids : ID m_ids'''
+	'''ids : ID np_ids_1 m_ids'''
 
 def p_m_ids(p):
 	'''m_ids	: ',' ids
 						| empty'''
 
+#NEURAL POINTS FOR IDS
+def p_np_ids_1(p):
+	'''np_ids_1	:'''
+	global currentVarIds
+	currentVarIds.append(p[-1])
+
 #VARS
 def p_vars(p):
-	'''vars	: VAR ids ':' vars_type ';' '''
+	'''vars	: VAR ids ':' vars_type ';' np_vars_3'''
 
 def p_vars_type(p):
-	'''vars_type	: type vars_tp_a
-	        			| ID vars_tp_b'''
+	'''vars_type	: type np_vars_1 vars_tp_a
+	        			| ID np_vars_2 vars_tp_b'''
 
 def p_vars_tp_a(p):
 	'''vars_tp_a	: '=' expression
@@ -97,26 +217,68 @@ def p_vars_assgn(p):
 	'''vars_assgn	: create_obj
 	  				    | expression'''
 
+#NEURAL POINTS FOR VARS
+def p_np_vars_1(p):
+	'''np_vars_1	:'''
+	validateAndAddVarsToScope(0)
+
+def p_np_vars_2(p):
+	'''np_vars_2	:'''
+	global currentType
+	currentType = keywordMapper.get("object")
+	validateAndAddVarsToScope(0)
+
+def p_np_vars_3(p):
+	'''np_vars_3	:'''
+	global currentVarIds
+	currentVarIds[:] = []
+
 #VEC_MAT_TYPE
-def p_ver_mat_type(p):
+def p_vec_mat_type(p):
 	'''vec_mat_type	: type
-									| ID'''
+									| ID np_vec_mat_type_1'''
+
+#NEURAL POINTS FOR VEC_MAT_TYPE
+def p_np_vec_mat_type_1(p):
+	'''np_vec_mat_type_1	:'''
+	global currentType
+	currentType = keywordMapper.get("object")
 
 #VECTOR
 def p_vector(p):
-	'''vector	: VEC ids ':' vec_mat_type '[' CONST_I ']' vec_assgn ';' '''
+	'''vector	: VEC ids ':' vec_mat_type '[' CONST_I ']' np_vector_1 vec_assgn ';' np_vector_2'''
 
 def p_vec_assgn(p):
 	'''vec_assgn	: '=' vector_exp
 								| empty'''
 
+#NEURAL POINTS FOR VECTOR
+def p_np_vector_1(p):
+	'''np_vector_1	:'''
+	validateAndAddVarsToScope(1)
+
+def p_np_vector_2(p):
+	'''np_vector_2	:'''
+	global currentVarIds
+	currentVarIds[:] = []
+
 #MATRIX
 def p_matrix(p):
-	'''matrix	: MAT ids ':' vec_mat_type '[' CONST_I ',' CONST_I ']' mat_assgn ';' '''
+	'''matrix	: MAT ids ':' vec_mat_type '[' CONST_I ',' CONST_I ']' np_matrix_1 mat_assgn ';' np_matrix_2'''
 
 def p_mat_assgn(p):
 	'''mat_assgn	: '=' matrix_exp
 								| empty'''
+
+#NEURAL POINTS FOR MATRIX
+def p_np_matrix_1(p):
+	'''np_matrix_1	:'''
+	validateAndAddVarsToScope(2)
+
+def p_np_matrix_2(p):
+	'''np_matrix_2	:'''
+	global currentVarIds
+	currentVarIds[:] = []
 
 #ID_ACCESS
 def p_id_access(p):
@@ -127,18 +289,59 @@ def p_id_mat_acc(p):
 								| empty'''
 
 def p_id_var_acc(p):
-	'''id_var_acc	: '.' ID id_mat_acc
+	'''id_var_acc	: '.' np_id_access_1 ID id_mat_acc
 								| empty'''
+
+#NEURAL POINTS FOR ID_ACCESS
+# TODO: Possibly refactor this into a method (it is very similar to checkIfVariableWasDefined)
+def p_np_id_access_1(p):
+	'''np_id_access_1	:'''
+	if refersToClass == True or currentMethod == "":
+		varTable = funcDirTable.getVarTable(currentClass, None)
+		dim, primType = varTable.get(currentVarId).varType
+		if primType != keywordMapper.get("object"):
+			print("Error: Cannot use the '.' operator with '%s', because it is not of object type" % (currentVarId))
+	else:
+		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+		dim, primType = varTable.get(currentVarId).varType
+		if primType != keywordMapper.get("object"):
+			varTable = funcDirTable.getVarTable(currentClass, None)
+			dim, primType = varTable.get(currentVarId).varType
+			if primType != keywordMapper.get("object"):
+				print("Error: Cannot use the '.' operator with '%s', because it is not of object type" % (currentVarId))
 
 #ASSIGNMENT
 def p_assignment(p):
-	'''assignment	: ID id_access '=' ass_value ';' '''
+	'''assignment	: this ID np_assignment_1 id_access '=' ass_value ';' '''
 
 def p_ass_value(p):
 	'''ass_value	: create_obj
 								| expression
 								| matrix_exp
 	        			| vector_exp'''
+
+#NEURAL POINTS FOR ASSIGNMENT
+def p_np_assignment_1(p):
+	'''np_assignment_1	:'''
+	global currentVarId
+	currentVarId = p[-1]
+	checkIfVariableWasDefined(currentVarId)
+
+#THIS
+def p_this(p):
+	'''this	: THIS np_this_1 '.'
+					| np_this_2'''
+
+#NEURAL POINTS FOR THIS
+def p_np_this_1(p):
+	'''np_this_1	:'''
+	global refersToClass
+	refersToClass = True
+
+def p_np_this_2(p):
+	'''np_this_2	:'''
+	global refersToClass	
+	refersToClass = False
 
 #VECTOR_EXP
 def p_vector_exp(p):
@@ -180,16 +383,65 @@ def p_mat_access(p):
 
 #METHOD
 def p_method(p):
-	'''method	: func_spec '(' opt_method_param ')' block'''
+	'''method	: func_spec '(' np_method_5 opt_method_param ')' np_method_6 block'''
 
 def p_func_spec(p):
-	'''func_spec	: method_access func_type ID
-								| CONSTRUCTOR'''
+	'''func_spec	: method_access func_type ID np_method_4
+								| CONSTRUCTOR np_method_1'''
 
 def p_func_type(p):
-	'''func_type	: VOID
+	'''func_type	: VOID np_method_2
 								| type
-								| ID'''
+								| ID np_method_3'''
+
+#NEURAL POINTS FOR METHOD
+def p_np_method_1(p):
+	'''np_method_1	:'''
+	global isCurrentMethodPrivate, isCurrentMethodIndependent, currentMethod, currentType, currentMethodType
+	isCurrentMethodPrivate = False
+	isCurrentMethodIndependent = False
+	currentMethod = "constructor"
+	currentType = None
+	currentMethodType = currentType
+
+def p_np_method_2(p):
+	'''np_method_2	:'''
+	global currentType
+	currentType = keywordMapper.get(p[-1])
+
+def p_np_method_3(p):
+	'''np_method_3	:'''
+	global currentType
+	currentType = keywordMapper.get("object")
+
+def p_np_method_4(p):
+	'''np_method_4	:'''
+	global currentMethod, currentMethodType
+	currentMethod = p[-1]
+	currentMethodType = currentType
+
+def p_np_method_5(p):
+	'''np_method_5	:'''
+	global currentParamIds, currentParamTypes
+	currentParamIds[:] = []
+	currentParamTypes[:] = []
+
+def p_np_method_6(p):
+	'''np_method_6	:'''
+	global funcDirTable, varTable
+	if funcDirTable.has(currentMethod, tuple(currentParamTypes)) == True:
+		print("Error: Method '%s' was already defined with the same parameters." % (currentMethod))
+	else:
+		newFuncDirRow = FuncDirRow(currentMethodType, isCurrentMethodIndependent, isCurrentMethodPrivate)
+		funcDirTable.add(currentMethod, tuple(currentParamTypes), newFuncDirRow)
+		# Get the VarTable of the 'just created' function.
+		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+		for index in range(len(currentParamIds)):
+			if varTable.has(currentParamIds[index]):
+				print("Error: Parameter '%s' was already defined for '%s' method" % (currentParamIds[index], currentMethod))
+			else:
+				newVarTableRow = VarTableRow(currentParamTypes[index], None, None)
+				varTable.add(currentParamIds[index], newVarTableRow)
 
 #METHOD_PARAM
 def p_opt_method_param(p):
@@ -197,7 +449,7 @@ def p_opt_method_param(p):
 											| empty'''
 
 def p_method_param(p):
-	'''method_param	: ID ':' param_type param_mat_vec more_params'''
+	'''method_param	: ID np_method_param_1 ':' param_type param_mat_vec np_method_param_6 more_params'''
 
 def p_more_params(p):
 	'''more_params	: ',' method_param
@@ -205,15 +457,47 @@ def p_more_params(p):
 
 def p_param_type(p):
 	'''param_type	: type
-								| ID'''
+								| ID np_method_param_2'''
 
 def p_param_mat_vec(p):
 	'''param_mat_vec	: '[' param_mat ']'
-										| empty'''
+										| np_method_param_3'''
 
 def p_param_mat(p):
-	'''param_mat	: ','
-								| empty'''
+	'''param_mat	: ',' np_method_param_5
+								| np_method_param_4'''
+
+#NEURAL POINTS FOR METHOD_PARAM
+def p_np_method_param_1(p):
+	'''np_method_param_1	:'''
+	global currentParamId
+	currentParamId = p[-1]
+
+def p_np_method_param_2(p):
+	'''np_method_param_2	:'''
+	global currentType
+	currentType = keywordMapper.get("object")
+
+def p_np_method_param_3(p):
+	'''np_method_param_3	:'''
+	global currentDim
+	currentDim = 0
+
+def p_np_method_param_4(p):
+	'''np_method_param_4	:'''
+	global currentDim
+	currentDim = 1
+
+def p_np_method_param_5(p):
+	'''np_method_param_5	:'''
+	global currentDim
+	currentDim = 2
+
+def p_np_method_param_6(p):
+	'''np_method_param_6	:'''
+	global currentParamIds, currentParamTypes
+	currentParamIds.append(currentParamId)
+	currentParamTypes.append((currentDim, currentType))
 
 #CREATE_OBJ
 def p_create_obj(p):
@@ -245,8 +529,7 @@ def p_statement(p):
 								| loop
 								| in_out
 								| return
-								| var_decl
-								| CONSTANT var_decl '''
+								| var_decl'''
 
 #CONDITION
 def p_condition(p):
@@ -347,10 +630,16 @@ def p_term_op(p):
 
 #TYPE
 def p_type(p):
-	'''type	: INT
-					| DOUBLE
-					| CHAR
-					| BOOL'''
+	'''type	: INT np_type_1
+					| DOUBLE np_type_1
+					| CHAR np_type_1
+					| BOOL np_type_1'''
+
+#NEURAL POINTS FOR TYPE
+def p_np_type_1(p):
+	'''np_type_1	:'''
+	global currentType
+	currentType = keywordMapper.get(p[-1])
 
 #VAR_CTE
 def p_var_cte(p):
@@ -372,30 +661,33 @@ def p_fact_neg(p):
 def p_fact_body(p):
 	'''fact_body	: '(' expression ')'
 								| var_cte
-								| ID fact_id'''
-
+								| this ID np_factor_1 fact_id'''
 
 def p_fact_id(p):
 	'''fact_id	: func_call
 							| id_access'''
 
+#NEURAL POINTS FOR FACTOR
+def p_np_factor_1(p):
+	'''np_factor_1	:'''
+	global currentVarId
+	currentVarId = p[-1]
+	checkIfVariableWasDefined(currentVarId)
 
 #ERROR
 def p_error(p):
 	if p:
-		print("Line # %d: Syntax error at token %s" % (p.lexer.lineno, p.type))
+		print("Line #%d: Syntax error at token %s" % (p.lexer.lineno, p.type))
 	else:
 		print("Syntax error at EOF!")
-
 
 #EMPTY
 def p_empty(p):
 	'''empty	: '''
 	pass
 
-
+# Creating and running the parser with a file provided by the user.
 parser = yacc.yacc()
-
 fileName = input("File to analyze: ")
 try:
 	file = open(fileName, 'r')

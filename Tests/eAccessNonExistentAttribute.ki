@@ -1,0 +1,7 @@
+class AccessNonExistentAttribute {
+  private var x, y, z : int;
+
+  public_func void doSomething(w : int) {
+    print(this.w);
+  }
+}

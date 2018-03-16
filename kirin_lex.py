@@ -3,7 +3,6 @@
 # Jose Juan Zavala Iglesias		| A01281362
 # Angel Seiji Morimoto Burgos	| A01281380
 
-
 import ply.lex as lex
 
 reservedWords = { 
@@ -21,7 +20,7 @@ reservedWords = {
   'void': 'VOID',
   'constructor': 'CONSTRUCTOR',
   'new': 'NEW',
-  'constant': 'CONSTANT',
+  'this': 'THIS',
   'if': 'IF',
   'else': 'ELSE',
   'elseif': 'ELSEIF',

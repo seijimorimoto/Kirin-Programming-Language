@@ -1,0 +1,8 @@
+class AccessAttributeFromNonObject {
+  private var x, y, z : int;
+  public var name : String;
+
+  public_func void doSomething(x : Obj) {
+    print(this.x.attr);
+  }
+}
