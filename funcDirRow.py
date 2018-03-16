@@ -4,7 +4,7 @@
 # Angel Seiji Morimoto Burgos	| A01281380
 
 from varTable import VarTable
-from type import primTypeMapper
+from varTableRow import primTypeMapper
 
 class FuncDirRow(object):
 

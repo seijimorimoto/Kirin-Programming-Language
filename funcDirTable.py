@@ -4,6 +4,7 @@
 # Angel Seiji Morimoto Burgos	| A01281380
 
 from funcDirRow import FuncDirRow
+from varTableRow import primTypeMapper
 
 class FuncDirTable(object):
 
@@ -22,7 +23,8 @@ class FuncDirTable(object):
 			else:
 				blockParamsStr = "("
 				for param in blockParams:
-					blockParamsStr = blockParamsStr + str(param) + ", "
+					dim, primType = param
+					blockParamsStr = blockParamsStr + "(%d, %s), " % (dim, primTypeMapper.get(primType))
 				blockParamsStr = list(blockParamsStr.strip())
 				blockParamsStr[len(blockParamsStr) - 1] = ')'
 				blockParamsStr = "".join(blockParamsStr)

@@ -10,7 +10,6 @@ from kirin_lex import tokens
 from funcDirTable import FuncDirTable
 from funcDirRow import FuncDirRow
 from varTableRow import VarTableRow
-from type import Type
 
 keywordMapper = {
 	'int': 1,
@@ -48,14 +47,14 @@ def validateAndAddVarsToScope(dim):
 			if varTable.has(currentVarId):
 				print("Error: Variable '%s' was already defined." % (currentVarId))
 			else:
-				newVarTableRow = VarTableRow(Type(dim, currentType), isCurrentVarIndependent, isCurrentVarPrivate)
+				newVarTableRow = VarTableRow((dim, currentType), isCurrentVarIndependent, isCurrentVarPrivate)
 				varTable.add(currentVarId, newVarTableRow)
 		else:
 			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
 			if varTable.has(currentVarId):
 				print("Error: Variable '%s' was already defined." % (currentVarId))
 			else:
-				newVarTableRow = VarTableRow(Type(dim, currentType), None, None)
+				newVarTableRow = VarTableRow((dim, currentType), None, None)
 				varTable.add(currentVarId, newVarTableRow)
 
 def checkIfVariableWasDefined(id):
@@ -299,13 +298,16 @@ def p_np_id_access_1(p):
 	'''np_id_access_1	:'''
 	if refersToClass == True or currentMethod == "":
 		varTable = funcDirTable.getVarTable(currentClass, None)
-		if varTable.get(currentVarId).varType.primType != keywordMapper.get("object"):
+		dim, primType = varTable.get(currentVarId).varType
+		if primType != keywordMapper.get("object"):
 			print("Error: Cannot use the '.' operator with '%s', because it is not of object type" % (currentVarId))
 	else:
 		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
-		if varTable.get(currentVarId).varType.primType != keywordMapper.get("object"):
+		dim, primType = varTable.get(currentVarId).varType
+		if primType != keywordMapper.get("object"):
 			varTable = funcDirTable.getVarTable(currentClass, None)
-			if varTable.get(currentVarId).varType.primType != keywordMapper.get("object"):
+			dim, primType = varTable.get(currentVarId).varType
+			if primType != keywordMapper.get("object"):
 				print("Error: Cannot use the '.' operator with '%s', because it is not of object type" % (currentVarId))
 
 #ASSIGNMENT
@@ -395,11 +397,12 @@ def p_func_type(p):
 #NEURAL POINTS FOR METHOD
 def p_np_method_1(p):
 	'''np_method_1	:'''
-	global isCurrentMethodPrivate, isCurrentMethodIndependent, currentMethod, currentType
+	global isCurrentMethodPrivate, isCurrentMethodIndependent, currentMethod, currentType, currentMethodType
 	isCurrentMethodPrivate = False
 	isCurrentMethodIndependent = False
 	currentMethod = "constructor"
 	currentType = None
+	currentMethodType = currentType
 
 def p_np_method_2(p):
 	'''np_method_2	:'''
@@ -437,8 +440,7 @@ def p_np_method_6(p):
 			if varTable.has(currentParamIds[index]):
 				print("Error: Parameter '%s' was already defined for '%s' method" % (currentParamIds[index], currentMethod))
 			else:
-				dim, primType = currentParamTypes[index]
-				newVarTableRow = VarTableRow(Type(dim, primType), None, None)
+				newVarTableRow = VarTableRow(currentParamTypes[index], None, None)
 				varTable.add(currentParamIds[index], newVarTableRow)
 
 #METHOD_PARAM
@@ -495,7 +497,7 @@ def p_np_method_param_6(p):
 	'''np_method_param_6	:'''
 	global currentParamIds, currentParamTypes
 	currentParamIds.append(currentParamId)
-	currentParamTypes.append(Type(currentDim, currentType).toTuple())
+	currentParamTypes.append((currentDim, currentType))
 
 #CREATE_OBJ
 def p_create_obj(p):
