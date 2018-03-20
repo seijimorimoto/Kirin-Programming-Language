@@ -3,36 +3,60 @@
 # Jose Juan Zavala Iglesias		| A01281362
 # Angel Seiji Morimoto Burgos	| A01281380
 
-# TODO: Whenever an error occurs and the message is displayed, break the execution of the parser.
+import sys
 import ply.yacc as yacc
 
 from kirin_lex import tokens
 from funcDirTable import FuncDirTable
 from funcDirRow import FuncDirRow
 from varTableRow import VarTableRow
+from semanticCube import keywordMapper
+from semanticCube import invKeywordMapper
+from semanticCube import SemanticCube
+from quadrupleManager import QuadrupleManager
+from quadrupleManager import operatorMapper
+from quadrupleManager import invOperatorMapper
 
-keywordMapper = {
-	'int': 1,
-	'double': 2,
-	'char': 3,
-	'bool': 4,
-	'object': 5,
-	'class': 6,
-	'void': 7
-}
+# Constants for initializing memory addresses for local variables.
+CONST_L_BEGIN_INT = 10000
+CONST_L_BEGIN_DOUBLE = 11000
+CONST_L_BEGIN_CHAR = 12000
+CONST_L_BEGIN_BOOL = 13000
+
+# Initialization of global counters
+gInt = 0
+gDouble = 1000
+gChar = 2000
+gBool = 3000
+lInt = CONST_L_BEGIN_INT
+lDouble = CONST_L_BEGIN_DOUBLE
+lChar = CONST_L_BEGIN_CHAR
+lBool = CONST_L_BEGIN_BOOL
+tInt = 20000
+tDouble = 21000
+tChar = 22000
+tBool = 23000
+ctInt = 30000
+ctDouble = 31000
+ctChar = 32000
+ctBool = 33000
 
 # Initialize global variables with default values
 funcDirTable = FuncDirTable()
+quadManager = QuadrupleManager()
+semanticCube = SemanticCube()
 currentClass = ""
 currentMethod = ""
 currentMethodType = 0
 currentType = 0
 currentDim = 0
-currentVarId = ""
+currentVarId = "" # The last variable seen in the parsing process.
+currentVarIdToAssign = "" # The last variable seen in the left side of an assignment in the parsing process.
 currentVarIds = []
 currentParamId = ""
 currentParamIds = []
 currentParamTypes = []
+currentCtType = ""
 isCurrentVarPrivate = True
 isCurrentVarIndependent = False
 isCurrentMethodPrivate = False
@@ -40,21 +64,87 @@ isCurrentMethodIndependent = False
 refersToClass = False
 
 # Helper methods for checking semantics during parsing process.
+def getNextAddress(type, scope):
+	global gInt, gDouble, gChar, gBool, lInt, lDouble, lChar, lBool, tInt, tDouble, tChar, tBool
+	typeAsStr = invKeywordMapper.get(type)
+	if scope == 'global':
+		if typeAsStr == 'int':
+			newAddress = gInt
+			gInt = gInt + 1
+			return newAddress
+		if typeAsStr == 'double':
+			newAddress = gDouble
+			gDouble = gDouble + 1
+			return newAddress
+		if typeAsStr == 'char':
+			newAddress = gChar
+			gChar = gChar + 1
+			return newAddress
+		if typeAsStr == 'bool':
+			newAddress = gBool
+			gBool = gBool + 1
+			return newAddress
+	elif scope == 'local':
+		if typeAsStr == 'int':
+			newAddress = lInt
+			lInt = lInt + 1
+			return newAddress
+		if typeAsStr == 'double':
+			newAddress = lDouble
+			lDouble = lDouble + 1
+			return newAddress
+		if typeAsStr == 'char':
+			newAddress = lChar
+			lChar = lChar + 1
+			return newAddress
+		if typeAsStr == 'bool':
+			newAddress = lBool
+			lBool = lBool + 1
+			return newAddress
+	elif scope == 'temp':
+		if typeAsStr == 'int':
+			newAddress = tInt
+			tInt = tInt + 1
+			return newAddress
+		if typeAsStr == 'double':
+			newAddress = tDouble
+			tDouble = tDouble + 1
+			return newAddress
+		if typeAsStr == 'char':
+			newAddress = tChar
+			tChar = tChar + 1
+			return newAddress
+		if typeAsStr == 'bool':
+			newAddress = tBool
+			tBool = tBool + 1
+			return newAddress
+
+def resetLocalMemoryAddresses():
+	global lInt, lDouble, lChar, lBool
+	lInt = CONST_L_BEGIN_INT
+	lDouble = CONST_L_BEGIN_DOUBLE
+	lChar = CONST_L_BEGIN_CHAR
+	lBool = CONST_L_BEGIN_BOOL
+
 def validateAndAddVarsToScope(dim):
 	for currentVarId in currentVarIds:
 		if currentMethod == "":
 			varTable = funcDirTable.getVarTable(currentClass, None) 
 			if varTable.has(currentVarId):
 				print("Error: Variable '%s' was already defined." % (currentVarId))
+				sys.exit(0)
 			else:
-				newVarTableRow = VarTableRow((dim, currentType), isCurrentVarIndependent, isCurrentVarPrivate)
+				address = getNextAddress(currentType, "global")
+				newVarTableRow = VarTableRow((dim, currentType), isCurrentVarIndependent, isCurrentVarPrivate, address)
 				varTable.add(currentVarId, newVarTableRow)
 		else:
 			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
 			if varTable.has(currentVarId):
 				print("Error: Variable '%s' was already defined." % (currentVarId))
+				sys.exit(0)
 			else:
-				newVarTableRow = VarTableRow((dim, currentType), None, None)
+				address = getNextAddress(currentType, "local")
+				newVarTableRow = VarTableRow((dim, currentType), None, None, address)
 				varTable.add(currentVarId, newVarTableRow)
 
 def checkIfVariableWasDefined(id):
@@ -62,12 +152,80 @@ def checkIfVariableWasDefined(id):
 		varTable = funcDirTable.getVarTable(currentClass, None)
 		if varTable.has(id) == False:
 			print("Error: Variable '%s' was not declared." % (id))
+			sys.exit(0)
 	else:
 		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
 		if varTable.has(id) == False:
 			varTable = funcDirTable.getVarTable(currentClass, None)
 			if varTable.has(id) == False:
 				print("Error: Variable '%s' was not declared." % (id))
+				sys.exit(0)
+
+def getVarAddress(id):
+	if refersToClass == True or currentMethod == '':
+		varTable = funcDirTable.getVarTable(currentClass, None)
+		return varTable.get(id).address
+	else:
+		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+		if varTable.has(id):
+			return varTable.get(id).address
+		else:
+			varTable = funcDirTable.getVarTable(currentClass, None)
+			return varTable.get(id).address
+
+def getVarType(id):
+	if refersToClass == True or currentMethod == '':
+		varTable = funcDirTable.getVarTable(currentClass, None)
+		return varTable.get(id).varType
+	else:
+		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+		if varTable.has(id):
+			return varTable.get(id).varType
+		else:
+			varTable = funcDirTable.getVarTable(currentClass, None)
+			return varTable.get(id).varType
+
+def generateQuadForBinaryOperator(operatorList):
+	operatorMatch = False
+	topOp = invOperatorMapper.get(quadManager.topOp())
+	for op in operatorList:
+		if topOp == op:
+			operatorMatch = True
+			break
+	if operatorMatch:
+		operType2 = quadManager.popType()
+		operType1 = quadManager.popType()
+		oper2 = quadManager.popOper()
+		oper1 = quadManager.popOper()
+		operator = quadManager.popOp()
+		resType = semanticCube.checkType(operator, operType1, operType2)
+		if invKeywordMapper.get(resType) == "error":
+			print("Error: Binary '%s' does not support operands of type '%s', '%s'." % (invOperatorMapper.get(operator), invKeywordMapper.get(operType1), invKeywordMapper.get(operType2)))
+			sys.exit(0)
+		resAddress = getNextAddress(resType, "temp")
+		quadManager.addQuad(operator, oper1, oper2, resAddress)
+		quadManager.pushOper(resAddress)
+		quadManager.pushType(resType)
+
+def generateQuadForUnaryOperator(operatorList):
+	operatorMatch = False
+	topOp = invOperatorMapper.get(quadManager.topOp())
+	for op in operatorList:
+		if topOp == op:
+			operatorMatch = True
+			break
+	if operatorMatch:
+		operType = quadManager.popType()
+		oper = quadManager.popOper()
+		operator = quadManager.popOp()
+		resType = semanticCube.checkType(operator, -1, operType)
+		if invKeywordMapper.get(resType) == "error":
+			print("Error: Unary '%s' does not support operand of type '%s'." % (invOperatorMapper.get(operator), invKeywordMapper.get(operType)))
+			sys.exit(0)
+		resAddress = getNextAddress(resType, "temp")
+		quadManager.addQuad(operator, -1, oper, resAddress)
+		quadManager.pushOper(resAddress)
+		quadManager.pushType(resType)
 
 #PROGRAM
 def p_program(p):
@@ -206,7 +364,7 @@ def p_vars_type(p):
 	        			| ID np_vars_2 vars_tp_b'''
 
 def p_vars_tp_a(p):
-	'''vars_tp_a	: '=' expression
+	'''vars_tp_a	: '=' np_vars_4 expression np_vars_5
 	   				    | empty'''
 
 def p_vars_tp_b(p):
@@ -232,6 +390,27 @@ def p_np_vars_3(p):
 	'''np_vars_3	:'''
 	global currentVarIds
 	currentVarIds[:] = []
+
+def p_np_vars_4(p):
+	'''np_vars_4	:'''
+	quadManager.pushOp(p[-1])
+
+def p_np_vars_5(p):
+	'''np_vars_5	:'''
+	global refersToClass
+	# refersToClass is set to false since all the variables declared do not use 'this'.
+	# It is necessary to do this so that getVarAddress(id) works properly in this method.
+	refersToClass = False
+	currentOp = quadManager.popOp()
+	expressionValue = quadManager.popOper()
+	expressionType = quadManager.popType()
+	answerType = semanticCube.checkType(currentOp, currentType, expressionType)
+	if invKeywordMapper.get(answerType) == "error":
+		print("Error: Type mismatch in line %d" % (p.lineno))
+		sys.exit(0)
+	for id in currentVarIds:
+		address = getVarAddress(id)
+		quadManager.addQuad(currentOp, -1, expressionValue, address)
 
 #VEC_MAT_TYPE
 def p_vec_mat_type(p):
@@ -301,6 +480,7 @@ def p_np_id_access_1(p):
 		dim, primType = varTable.get(currentVarId).varType
 		if primType != keywordMapper.get("object"):
 			print("Error: Cannot use the '.' operator with '%s', because it is not of object type" % (currentVarId))
+			sys.exit(0)
 	else:
 		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
 		dim, primType = varTable.get(currentVarId).varType
@@ -309,23 +489,40 @@ def p_np_id_access_1(p):
 			dim, primType = varTable.get(currentVarId).varType
 			if primType != keywordMapper.get("object"):
 				print("Error: Cannot use the '.' operator with '%s', because it is not of object type" % (currentVarId))
+				sys.exit(0)
 
 #ASSIGNMENT
 def p_assignment(p):
-	'''assignment	: this ID np_assignment_1 id_access '=' ass_value ';' '''
+	'''assignment	: this ID np_assignment_1 id_access '=' np_assignment_2 ass_value ';' '''
 
 def p_ass_value(p):
 	'''ass_value	: create_obj
-								| expression
+								| expression np_assignment_3
 								| matrix_exp
 	        			| vector_exp'''
 
 #NEURAL POINTS FOR ASSIGNMENT
 def p_np_assignment_1(p):
 	'''np_assignment_1	:'''
-	global currentVarId
+	global currentVarId, currentVarIdToAssign
 	currentVarId = p[-1]
+	currentVarIdToAssign = p[-1]
 	checkIfVariableWasDefined(currentVarId)
+
+def p_np_assignment_2(p):
+	'''np_assignment_2	:'''
+	quadManager.pushOp(p[-1])
+
+def p_np_assignment_3(p):
+	'''np_assignment_3	:'''
+	currentOp = quadManager.popOp()
+	expressionValue = quadManager.popOper()
+	expressionType = quadManager.popType()
+	if invKeywordMapper.get(expressionType) == "error":
+		print("Error: Type mismatch in line %d." % (p.lineno))
+		sys.exit(0)
+	address = getVarAddress(currentVarIdToAssign)
+	quadManager.addQuad(currentOp, -1, expressionValue, address)
 
 #THIS
 def p_this(p):
@@ -383,7 +580,7 @@ def p_mat_access(p):
 
 #METHOD
 def p_method(p):
-	'''method	: func_spec '(' np_method_5 opt_method_param ')' np_method_6 block'''
+	'''method	: func_spec '(' np_method_5 opt_method_param ')' np_method_6 block np_method_7'''
 
 def p_func_spec(p):
 	'''func_spec	: method_access func_type ID np_method_4
@@ -431,6 +628,7 @@ def p_np_method_6(p):
 	global funcDirTable, varTable
 	if funcDirTable.has(currentMethod, tuple(currentParamTypes)) == True:
 		print("Error: Method '%s' was already defined with the same parameters." % (currentMethod))
+		sys.exit(0)
 	else:
 		newFuncDirRow = FuncDirRow(currentMethodType, isCurrentMethodIndependent, isCurrentMethodPrivate)
 		funcDirTable.add(currentMethod, tuple(currentParamTypes), newFuncDirRow)
@@ -439,9 +637,16 @@ def p_np_method_6(p):
 		for index in range(len(currentParamIds)):
 			if varTable.has(currentParamIds[index]):
 				print("Error: Parameter '%s' was already defined for '%s' method" % (currentParamIds[index], currentMethod))
+				sys.exit(0)
 			else:
-				newVarTableRow = VarTableRow(currentParamTypes[index], None, None)
+				_, primType = currentParamTypes[index]
+				address = getNextAddress(primType, "local")
+				newVarTableRow = VarTableRow(currentParamTypes[index], None, None, address)
 				varTable.add(currentParamIds[index], newVarTableRow)
+
+def p_np_method_7(p):
+	'''np_method_7	:'''
+	resetLocalMemoryAddresses()
 
 #METHOD_PARAM
 def p_opt_method_param(p):
@@ -559,17 +764,30 @@ def p_while_loop(p):
 #IN_OUT
 def p_in_out(p):
 	'''in_out	: PRINT '(' print_exp ')' ';'
-						| SCAN '(' ID id_access ')' ';' '''
+						| SCAN '(' ID np_in_out_2 id_access ')' ';' '''
 
 def p_print_exp(p):
-	'''print_exp	: print_val print_more'''
-
-def p_print_val(p):
-	'''print_val	: expression'''
+	'''print_exp	: expression np_in_out_1 print_more'''
 
 def p_print_more(p):
 	'''print_more	: ',' print_exp
 								| empty'''
+
+#NEURAL POINTS FOR IN_OUT
+def p_np_in_out_1(p):
+	'''np_in_out_1	:'''
+	expAddress = quadManager.popOper()
+	expType = quadManager.popType()
+	operator = operatorMapper.get('print')
+	quadManager.addQuad(operator, -1, -1, expAddress)
+
+def p_np_in_out_2(p):
+	'''np_in_out_2	:'''
+	global currentVarId
+	currentVarId = p[-1]
+	idAddress = getVarAddress(currentVarId)
+	operator = operatorMapper.get('scan')
+	quadManager.addQuad(operator, -1, -1, idAddress)
 
 #RETURN
 def p_return(p):
@@ -581,52 +799,102 @@ def p_ret_val(p):
 
 #EXPRESSION
 def p_expression(p):
-	'''expression	: rel_expression expression_op'''
+	'''expression	: rel_expression np_expression_1 expression_op'''
 
 def p_expression_op(p):
-	'''expression_op	: AND expression
-										| OR expression
-										| XOR expression
+	'''expression_op	: AND np_expression_2 expression
+										| OR np_expression_2 expression
+										| XOR np_expression_2 expression
 										| empty'''
 
-#REL_EXPRESSION_1
+#NEURAL POINTS FOR EXPRESSION
+def p_np_expression_1(p):
+	'''np_expression_1	:'''
+	operatorList = ["and", "or", "xor"]
+	generateQuadForBinaryOperator(operatorList)
+
+def p_np_expression_2(p):
+	'''np_expression_2	:'''
+	quadManager.pushOp(p[-1])
+
+#REL_EXPRESSION
 def p_rel_expression(p):
-	'''rel_expression	: rel_expression_1 rel_exp_op'''
+	'''rel_expression	: rel_expression_1 np_rel_expression_1 rel_exp_op'''
 
 def p_rel_exp_op(p):
-	'''rel_exp_op	: EQUAL rel_expression
-								| NOT_EQUAL rel_expression
+	'''rel_exp_op	: EQUAL np_rel_expression_2 rel_expression
+								| NOT_EQUAL np_rel_expression_2 rel_expression
 								| empty'''
+
+#NEURAL POINTS FOR REL_EXPRESSION
+def p_np_rel_expression_1(p):
+	'''np_rel_expression_1	:'''
+	operatorList = ["==", "<>"]
+	generateQuadForBinaryOperator(operatorList)
+
+def p_np_rel_expression_2(p):
+	'''np_rel_expression_2	:'''
+	quadManager.pushOp(p[-1])
 
 #REL_EXPRESSION_1
 def p_rel_expression_1(p):
-	'''rel_expression_1	: exp rel_exp_1_op'''
+	'''rel_expression_1	: exp np_rel_expression_1_1 rel_exp_1_op'''
 
 def p_rel_exp_1_op(p):
-	'''rel_exp_1_op	: '<' rel_expression_1
-									| LESS_EQUAL_THAN rel_expression_1
-									| '>' rel_expression_1
-									| GREATER_EQUAL_THAN rel_expression_1
+	'''rel_exp_1_op	: '<' np_rel_expression_1_2 rel_expression_1
+									| LESS_EQUAL_THAN np_rel_expression_1_2 rel_expression_1
+									| '>' np_rel_expression_1_2 rel_expression_1
+									| GREATER_EQUAL_THAN np_rel_expression_1_2 rel_expression_1
 									| empty'''
+
+#NEURAL POINTS FOR REL_EXPRESSION_1
+def p_np_rel_expression_1_1(p):
+	'''np_rel_expression_1_1	:'''
+	operatorList = ["<", "<=", ">", ">="]
+	generateQuadForBinaryOperator(operatorList)
+
+def p_np_rel_expression_1_2(p):
+	'''np_rel_expression_1_2	:'''
+	quadManager.pushOp(p[-1])
 
 #EXP
 def p_exp(p):
-	'''exp	: term exp_op'''
+	'''exp	: term np_exp_1 exp_op'''
 
 def p_exp_op(p):
-	'''exp_op	: '+' exp
-						| '-' exp
+	'''exp_op	: '+' np_exp_2 exp
+						| '-' np_exp_2 exp
 						| empty'''
+
+#NEURAL POINTS FOR EXP
+def p_np_exp_1(p):
+	'''np_exp_1	:'''
+	operatorList = ["+", "-"]
+	generateQuadForBinaryOperator(operatorList)
+
+def p_np_exp_2(p):
+	'''np_exp_2	:'''
+	quadManager.pushOp(p[-1])
 
 #TERM
 def p_term(p):
-	'''term	: factor term_op'''
+	'''term	: factor np_term_1 term_op'''
 
 def p_term_op(p):
-	'''term_op	: '*' term
-							| '/' term
-							| '%' term
+	'''term_op	: '*' np_term_2 term
+							| '/' np_term_2 term
+							| '%' np_term_2 term
 							| empty'''
+
+#NEURAL POINTS FOR TERM
+def p_np_term_1(p):
+	'''np_term_1	:'''
+	operatorList = ["*", "/", "%"]
+	generateQuadForBinaryOperator(operatorList)
+
+def p_np_term_2(p):
+	'''np_term_2	:'''
+	quadManager.pushOp(p[-1])
 
 #TYPE
 def p_type(p):
@@ -643,24 +911,51 @@ def p_np_type_1(p):
 
 #VAR_CTE
 def p_var_cte(p):
-	'''var_cte	: CONST_I
-							| CONST_F
-							| CONST_CHAR
-							| CONST_STRING
-							| CONST_BOOL'''
+	'''var_cte	: CONST_I np_var_cte_1
+							| CONST_F np_var_cte_2
+							| CONST_CHAR np_var_cte_3
+							| CONST_STRING np_var_cte_4
+							| CONST_BOOL np_var_cte_5'''
+	p[0] = p[1]
+
+#NEURAL POINTS FOR VAR_CTE
+def p_np_var_cte_1(p):
+	'''np_var_cte_1	:'''
+	global currentCtType
+	currentCtType = 'int'
+
+def p_np_var_cte_2(p):
+	'''np_var_cte_2	:'''
+	global currentCtType
+	currentCtType = 'double'
+
+def p_np_var_cte_3(p):
+	'''np_var_cte_3	:'''
+	global currentCtType
+	currentCtType = 'char'
+
+def p_np_var_cte_4(p):
+	'''np_var_cte_4	:'''
+	global currentCtType
+	currentCtType = 'char'
+
+def p_np_var_cte_5(p):
+	'''np_var_cte_5	:'''
+	global currentCtType
+	currentCtType = 'bool'
 
 #FACTOR
 def p_factor(p):
-	'''factor	: fact_neg fact_body'''
+	'''factor	: fact_neg fact_body np_factor_7'''
 
 def p_fact_neg(p):
-	'''fact_neg	: '-'
-							| '~'
+	'''fact_neg	: '-' np_factor_2
+							| '~' np_factor_3
 							| empty'''
 
 def p_fact_body(p):
-	'''fact_body	: '(' expression ')'
-								| var_cte
+	'''fact_body	: '(' np_factor_4 expression ')' np_factor_5
+								| var_cte np_factor_6
 								| this ID np_factor_1 fact_id'''
 
 def p_fact_id(p):
@@ -673,13 +968,50 @@ def p_np_factor_1(p):
 	global currentVarId
 	currentVarId = p[-1]
 	checkIfVariableWasDefined(currentVarId)
+	quadManager.pushOper(getVarAddress(currentVarId))
+	_, primType = getVarType(currentVarId)
+	quadManager.pushType(primType)
 
+def p_np_factor_2(p):
+	'''np_factor_2	:'''
+	quadManager.pushOp('UMINUS')
+
+def p_np_factor_3(p):
+	'''np_factor_3	:'''
+	quadManager.pushOp(p[-1])
+
+def p_np_factor_4(p):
+	'''np_factor_4	:'''
+	quadManager.pushOp(p[-1])
+
+def p_np_factor_5(p):
+	'''np_factor_5	:'''
+	quadManager.popOp()
+
+def p_np_factor_6(p):
+	'''np_factor_6	:'''
+	ctTypeCode = keywordMapper.get(currentCtType)
+	ctAddress = getNextAddress(ctTypeCode, 'temp')
+	# When reading quads in VM, if the operator is '=' and oper3 has temp scope, then
+	# oper2 is a constant value (not an address) and must be treated as such.
+	operator = operatorMapper.get('=')
+	quadManager.addQuad(operator, -1, p[-1], ctAddress)
+	quadManager.pushOper(ctAddress)
+	quadManager.pushType(ctTypeCode)
+
+def p_np_factor_7(p):
+	'''np_factor_7	:'''
+	operatorList = ["UMINUS", "~"]
+	generateQuadForUnaryOperator(operatorList)
+	
 #ERROR
 def p_error(p):
 	if p:
 		print("Line #%d: Syntax error at token %s" % (p.lexer.lineno, p.type))
+		sys.exit(0)
 	else:
 		print("Syntax error at EOF!")
+		sys.exit(0)
 
 #EMPTY
 def p_empty(p):
@@ -692,6 +1024,7 @@ fileName = input("File to analyze: ")
 try:
 	file = open(fileName, 'r')
 	parser.parse(file.read())
+	quadManager.printToFile("quadruples.o")
 	print("Syntax analysis finished.")
 except OSError:
 	print("The file '%s' does not exist or could not be opened." % (fileName))

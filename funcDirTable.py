@@ -4,7 +4,8 @@
 # Angel Seiji Morimoto Burgos	| A01281380
 
 from funcDirRow import FuncDirRow
-from varTableRow import primTypeMapper
+from semanticCube import keywordMapper
+from semanticCube import invKeywordMapper
 
 class FuncDirTable(object):
 
@@ -24,7 +25,7 @@ class FuncDirTable(object):
 				blockParamsStr = "("
 				for param in blockParams:
 					dim, primType = param
-					blockParamsStr = blockParamsStr + "(%d, %s), " % (dim, primTypeMapper.get(primType))
+					blockParamsStr = blockParamsStr + "(%d, %s), " % (dim, invKeywordMapper.get(primType))
 				blockParamsStr = list(blockParamsStr.strip())
 				blockParamsStr[len(blockParamsStr) - 1] = ')'
 				blockParamsStr = "".join(blockParamsStr)

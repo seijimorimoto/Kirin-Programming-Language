@@ -1,0 +1,13 @@
+class SequentialOperations {
+  
+  public_func independent void op(num1 : int, num2 : int) {
+    var res : int;
+    res = num1 - num2;
+    res = - num1;
+    res = num1 * num2;
+    res = num1 / num2;
+    res = num1 % num2;
+    res = num1 + num2;
+    print("La suma de ", num1, " y ", num2, " es ", res, "\n");
+  }
+}

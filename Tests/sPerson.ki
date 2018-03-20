@@ -7,7 +7,7 @@ class Person {
   constructor(a : int, s : char, n : String) {
     age = a;
     sex = s;
-    name = n;
+    // name = n; This doesn't work right now because assignment of addresses to objects has not been implemented.
   }
 
   public_func independent int getAge() {
@@ -31,6 +31,6 @@ class Person {
   }
 
   public_func void setName(n : String) {
-    name = n;
+    // name = n; This doesn't work right now because assignment of addresses to objects has not been implemented.
   }
 }
