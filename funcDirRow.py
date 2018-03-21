@@ -4,15 +4,15 @@
 # Angel Seiji Morimoto Burgos	| A01281380
 
 from varTable import VarTable
-from varTableRow import primTypeMapper
+from semanticCube import invKeywordMapper
 
 class FuncDirRow(object):
 
 	def __init__(self, blockType, isIndependent, isPrivate):
-		self.blockType = blockType
+		self.blockType = blockType # Numeric code representation of a type.
 		self.isIndependent = isIndependent
 		self.isPrivate = isPrivate
 		self.varTable = VarTable()
 
 	def __str__(self):
-		return str(primTypeMapper.get(self.blockType)) + " " + str(self.isIndependent) + " " + str(self.isPrivate)
+		return str(invKeywordMapper.get(self.blockType)) + " " + str(self.isIndependent) + " " + str(self.isPrivate)

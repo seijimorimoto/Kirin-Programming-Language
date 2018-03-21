@@ -9,7 +9,7 @@ class DummyClass {
   }
 
   public_func void setGrade(grade : Grade) {
-    this.grade = grade.value;
+    //this.grade = grade.value;
   }
 
   public_func double calculateAverage(list : int[], n : int)

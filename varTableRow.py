@@ -3,26 +3,17 @@
 # Jose Juan Zavala Iglesias		| A01281362
 # Angel Seiji Morimoto Burgos	| A01281380
 
-# It is the inverse version of the keywordMapper in 'kirin_yacc.py'.
-# It is just used for debugging purposes.
-primTypeMapper = {
-	1: 'int',
-	2: 'double',
-	3: 'char',
-	4: 'bool',
-	5: 'object',
-	6: 'class',
-	7: 'void'
-}
+from semanticCube import invKeywordMapper
 
 class VarTableRow(object):
 
-	def __init__(self, varType, isIndependent, isPrivate):
+	def __init__(self, varType, isIndependent, isPrivate, address):
 		self.varType = varType
 		self.isIndependent = isIndependent
 		self.isPrivate = isPrivate
+		self.address = address
 	
 	def __str__(self):
 		dim, primType = self.varType
-		varTypeStr = "(%d, %s)" % (dim, primTypeMapper.get(primType))
-		return varTypeStr + " " + str(self.isIndependent) + " " + str(self.isPrivate)
+		varTypeStr = "(%d, %s)" % (dim, invKeywordMapper.get(primType))
+		return varTypeStr + " " + str(self.isIndependent) + " " + str(self.isPrivate) + " " + str(self.address)

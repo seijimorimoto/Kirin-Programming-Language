@@ -3,6 +3,7 @@
 # Jose Juan Zavala Iglesias		| A01281362
 # Angel Seiji Morimoto Burgos	| A01281380
 
+import sys
 import ply.lex as lex
 
 reservedWords = { 
@@ -114,6 +115,7 @@ def t_ID(t):
 def t_error(t):
 	print("Line # %d: Illegal character '%s'" % (t.lexer.lineno, t.value[0]))
 	t.lexer.skip(1)
+	sys.exit(0)
 
 def t_newline(t):
   r'\n+'
