@@ -62,6 +62,8 @@ isCurrentVarIndependent = False
 isCurrentMethodPrivate = False
 isCurrentMethodIndependent = False
 refersToClass = False
+decisionsPerLevel = [0]
+decisionLevel = 0
 
 # Helper methods for checking semantics during parsing process.
 def getNextAddress(type, scope):
@@ -738,15 +740,54 @@ def p_statement(p):
 
 #CONDITION
 def p_condition(p):
-	'''condition	: IF cond_body'''
+	'''condition	: IF cond_body np_condition_4'''
 
 def p_cond_body(p):
-	'''cond_body	: '(' expression ')' block cond_else'''
+	'''cond_body	: '(' expression ')' np_condition_1 block cond_else'''
 
 def p_cond_else(p):
-	'''cond_else	: ELSE block
-								| ELSEIF cond_body
-								| empty'''
+	'''cond_else	: np_condition_2 ELSE block
+								| np_condition_2 ELSEIF cond_body
+								| np_condition_3'''
+
+#NEURAL POINTS FOR CONDITION
+def p_np_condition_1(p):
+	'''np_condition_1	:'''
+	global decisionLevel, decisionsPerLevel
+	expressionType = quadManager.popType()
+	expressionValue = quadManager.popOper()
+	if invKeywordMapper.get(expressionType) != "bool":
+		print("Error: Expected boolean expression after 'if'/'elseif' in line %d" % (p.lineno))
+		sys.exit(0)
+	quadManager.addQuad(operatorMapper.get("GOTOF"), expressionValue, -1, -1)
+	quadManager.pushJump(quadManager.quadCont - 1)
+	decisionsPerLevel[decisionLevel] = decisionsPerLevel[decisionLevel] + 1
+	decisionLevel = decisionLevel + 1
+	if len(decisionsPerLevel) == decisionLevel:
+		decisionsPerLevel.append(0)
+	else:
+		decisionsPerLevel[decisionLevel] = 0
+
+def p_np_condition_2(p):
+	'''np_condition_2	:'''
+	global decisionLevel
+	decisionLevel = decisionLevel - 1
+	quadManager.addQuad(operatorMapper.get("GOTO"), -1, -1, -1)
+	falseInCond = quadManager.popJump()
+	quadManager.fill(falseInCond, quadManager.quadCont)
+	quadManager.pushJump(quadManager.quadCont - 1)
+
+def p_np_condition_3(p):
+	'''np_condition_3	:'''
+	global decisionLevel
+	decisionLevel = decisionLevel - 1
+
+def p_np_condition_4(p):
+	'''np_condition_4	:'''
+	global decisionLevel, decisionsPerLevel
+	for _ in range(0, decisionsPerLevel[decisionLevel]):
+		endOfDecision = quadManager.popJump()
+		quadManager.fill(endOfDecision, quadManager.quadCont)
 
 #LOOP
 def p_loop(p):
@@ -755,11 +796,69 @@ def p_loop(p):
 
 #FOR_LOOP
 def p_for_loop(p):
-	'''for_loop	: FOR '(' assignment expression ';' ID '=' expression ')' block'''
+	'''for_loop	: FOR '(' assignment np_for_loop_1 expression np_for_loop_2 ';' ID '=' expression np_for_loop_3 ')' block np_for_loop_4'''
+
+#NEURAL POINTS FOR FOR_LOOP
+def p_np_for_loop_1(p):
+	'''np_for_loop_1	:'''
+	quadManager.pushJump(quadManager.quadCont) # condition begin
+
+def p_np_for_loop_2(p):
+	'''np_for_loop_2	:'''
+	expressionType = quadManager.popType()
+	expressionValue = quadManager.popOper()
+	if invKeywordMapper.get(expressionType) != 'bool':
+		print("Error: Expected boolean expression in second block of 'for' statement in line %d" % (p.lineno))
+		sys.exit(0)
+	quadManager.addQuad(operatorMapper.get("GOTOF"), expressionValue, -1, -1)
+	quadManager.pushJump(quadManager.quadCont - 1) # quad that jumps to the end of the loop
+	quadManager.addQuad(operatorMapper.get("GOTO"), -1, -1, -1) 
+	quadManager.pushJump(quadManager.quadCont - 1) # quad that goes to the beginning of the block
+	quadManager.pushJump(quadManager.quadCont) # quad that starts update of iteration var
+
+def p_np_for_loop_3(p):
+	'''np_for_loop_3	:'''
+	modificationBegin = quadManager.popJump()
+	conditionEnd = quadManager.popJump()
+	falseCondition = quadManager.popJump()
+	conditionBegin = quadManager.popJump()
+	quadManager.addQuad(operatorMapper.get("GOTO"), -1, -1, conditionBegin)
+	quadManager.fill(conditionEnd, quadManager.quadCont)
+	quadManager.pushJump(falseCondition)
+	quadManager.pushJump(modificationBegin)
+
+def p_np_for_loop_4(p):
+	'''np_for_loop_4	:'''
+	modificationBegin = quadManager.popJump()
+	quadManager.addQuad(operatorMapper.get("GOTO"), -1, -1, modificationBegin)
+	falseCondition = quadManager.popJump()
+	quadManager.fill(falseCondition, quadManager.quadCont)
 
 #WHILE_LOOP
 def p_while_loop(p):
-	'''while_loop	: WHILE '(' expression ')' block'''
+	'''while_loop	: WHILE np_while_loop_1 '(' expression ')' np_while_loop_2 block np_while_loop_3'''
+
+#NEURAL POINTS FOR WHILE_LOOP
+def p_np_while_loop_1(p):
+	'''np_while_loop_1	:'''
+	quadManager.pushJump(quadManager.quadCont)
+
+def p_np_while_loop_2(p):
+	'''np_while_loop_2	:'''
+	expressionType = quadManager.popType()
+	expressionValue = quadManager.popOper()
+	if invKeywordMapper.get(expressionType) != "bool":
+		print("Error: Expected boolean expression after 'while' in line %d" % (p.lineno))
+		sys.exit(0)
+	quadManager.addQuad(operatorMapper.get("GOTOF"), expressionValue, -1, -1)
+	quadManager.pushJump(quadManager.quadCont - 1)
+
+def p_np_while_loop_3(p):
+	'''np_while_loop_3	:'''
+	endLoop = quadManager.popJump()
+	returnToBeginLoop = quadManager.popJump()
+	quadManager.addQuad(operatorMapper.get("GOTO"), -1, -1, returnToBeginLoop)
+	quadManager.fill(endLoop, quadManager.quadCont)
 
 #IN_OUT
 def p_in_out(p):

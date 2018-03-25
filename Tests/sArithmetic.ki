@@ -1,0 +1,6 @@
+class Arithmetic {
+  public_func independent void main() {
+    var x : int;
+    x = 2 + "Hola";
+  }
+}

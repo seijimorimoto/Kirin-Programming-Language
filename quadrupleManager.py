@@ -23,6 +23,9 @@ operatorMapper = {
   '~': 207,
   'print': 301,
   'scan': 302,
+  'GOTO': 401,
+  'GOTOF': 402,
+  'GOTOT': 403,
   '(': 1001
 }
 
@@ -43,6 +46,9 @@ invOperatorMapper = {
   207: '~',
   301: 'print',
   302: 'scan',
+  401: 'GOTO',
+  402: 'GOTOF',
+  403: 'GOTOT',
   1001: '('
 }
 
@@ -53,10 +59,12 @@ class QuadrupleManager(object):
     self.stackOp = Stack()
     self.stackOper = Stack()
     self.stackTypes = Stack()
+    self.stackJumps = Stack()
     # Insert a false element in each stack, so that it always contains a top element.
     self.stackOp.push(999)
     self.stackOper.push(999)
     self.stackTypes.push(999)
+    self.stackJumps.push(999)
     self.queueQuad = []
     self.quadCont = 0
 
@@ -93,14 +101,28 @@ class QuadrupleManager(object):
   def popType(self):
     return self.stackTypes.pop()
   
-  def topTypes(self):
+  def topType(self):
     return self.stackTypes.top()
+  
+  def pushJump(self, jump):
+    self.stackJumps.push(jump)
+  
+  def popJump(self):
+    return self.stackJumps.pop()
+  
+  def topJump(self):
+    return self.stackJumps.top()
+  
+  def fill(self, quadPos, value):
+    self.queueQuad[quadPos].oper3 = value
   
   def printToFile(self, fileName):
     file = open(fileName, "w")
+    cont = 0 # for debugging purposes.
     for quad in self.queueQuad:
       file.write(str(quad))
       file.write("\n")
       # Print for debugging.
-      print("%s, %d, %s, %d" % (invOperatorMapper.get(quad.op), quad.oper1, quad.oper2, quad.oper3))
+      print("%d) %s, %d, %s, %d" % (cont, invOperatorMapper.get(quad.op), quad.oper1, quad.oper2, quad.oper3))
+      cont = cont + 1
     file.close()

@@ -1,0 +1,16 @@
+class Conditions2 {
+  public_func void myFunction() {
+    var x, y, z, w, v: int;
+
+    if (x < y) {
+      print(x);
+    } elseif (x < z) {
+      print(z);
+    } elseif (x < w) {
+      print(w);
+    } else {
+      print(y);
+    }
+    print(v);
+  }
+}
