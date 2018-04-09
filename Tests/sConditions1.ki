@@ -1,5 +1,5 @@
-class Conditions1 {
-  public_func void myFunction() {
+Main {
+  public_func void main() {
     var x, y, z: int;
 
     if (x < y) {

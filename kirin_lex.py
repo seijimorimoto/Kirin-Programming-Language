@@ -8,8 +8,8 @@ import ply.lex as lex
 
 reservedWords = { 
   'class': 'CLASS',
+  'Main': 'MAIN',
   'inherits': 'INHERITS',
-  'import': 'IMPORT',
   'public': 'PUBLIC',
   'private': 'PRIVATE',
   'public_func': 'PUBLIC_FUNC',

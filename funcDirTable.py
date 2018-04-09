@@ -24,8 +24,7 @@ class FuncDirTable(object):
 			else:
 				blockParamsStr = "("
 				for param in blockParams:
-					dim, primType = param
-					blockParamsStr = blockParamsStr + "(%d, %s), " % (dim, invKeywordMapper.get(primType))
+					blockParamsStr = blockParamsStr + invKeywordMapper.get(param) + ", "
 				blockParamsStr = list(blockParamsStr.strip())
 				blockParamsStr[len(blockParamsStr) - 1] = ')'
 				blockParamsStr = "".join(blockParamsStr)

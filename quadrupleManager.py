@@ -6,7 +6,7 @@
 from stack import Stack
 from quadruple import Quadruple
 
-operatorMapper = {
+operToCode = {
   '=': 101,
   '+': 102,
   '-': 103,
@@ -29,7 +29,7 @@ operatorMapper = {
   '(': 1001
 }
 
-invOperatorMapper = {
+codeToOper = {
   101: '=',
   102: '+',
   103: '-',
@@ -78,7 +78,7 @@ class QuadrupleManager(object):
     self.quadCont = self.quadCont + 1
   
   def pushOp(self, op):
-    self.stackOp.push(operatorMapper.get(op))
+    self.stackOp.push(operToCode.get(op))
   
   def popOp(self):
     return self.stackOp.pop()
@@ -123,6 +123,6 @@ class QuadrupleManager(object):
       file.write(str(quad))
       file.write("\n")
       # Print for debugging.
-      print("%d) %s, %d, %s, %d" % (cont, invOperatorMapper.get(quad.op), quad.oper1, quad.oper2, quad.oper3))
+      print("%d) %s, %d, %s, %d" % (cont, codeToOper.get(quad.op), quad.oper1, quad.oper2, quad.oper3))
       cont = cont + 1
     file.close()

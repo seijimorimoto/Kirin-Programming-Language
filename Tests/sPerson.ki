@@ -34,3 +34,9 @@ class Person {
     // name = n; This doesn't work right now because assignment of addresses to objects has not been implemented.
   }
 }
+
+Main {
+  public_func independent void main() {
+    print("HOLA");
+  }
+}
