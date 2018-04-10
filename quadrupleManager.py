@@ -26,6 +26,13 @@ operToCode = {
   'GOTO': 401,
   'GOTOF': 402,
   'GOTOT': 403,
+  'GOSUB': 404,
+  'ERA': 501,
+  'PARAM': 502,
+  'PARAM_REF': 503,
+  'LOAD_PARAM': 504,
+  'RETURN': 505,
+  'ENDPROC': 506,
   '(': 1001
 }
 
@@ -49,6 +56,13 @@ codeToOper = {
   401: 'GOTO',
   402: 'GOTOF',
   403: 'GOTOT',
+  404: 'GOSUB',
+  501: 'ERA',
+  502: 'PARAM',
+  503: 'PARAM_REF',
+  504: 'LOAD_PARAM',
+  505: 'RETURN',
+  506: 'ENDPROC',
   1001: '('
 }
 

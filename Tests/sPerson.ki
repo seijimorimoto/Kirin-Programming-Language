@@ -4,7 +4,7 @@ class Person {
   private var name : String;
   public var height : double;
 
-  constructor(a : int, s : char, n : String) {
+  constructor(a : int, s : char, n : String) { // Right now LOAD_PARAM quadruple does not work because objects have no addresses as of yet.
     age = a;
     sex = s;
     // name = n; This doesn't work right now because assignment of addresses to objects has not been implemented.
@@ -32,6 +32,10 @@ class Person {
 
   public_func void setName(n : String) {
     // name = n; This doesn't work right now because assignment of addresses to objects has not been implemented.
+  }
+
+  public_func void main() {
+    
   }
 }
 

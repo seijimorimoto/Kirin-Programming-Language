@@ -17,29 +17,42 @@ from quadrupleManager import QuadrupleManager
 from quadrupleManager import operToCode
 from quadrupleManager import codeToOper
 
-# Constants for initializing memory addresses for local variables.
+# Constants for initializing memory addresses.
+CONST_RETURN = -2
+CONST_G_BEGIN_INT = 0
+CONST_G_BEGIN_DOUBLE = 1000
+CONST_G_BEGIN_CHAR = 2000
+CONST_G_BEGIN_BOOL = 3000
 CONST_L_BEGIN_INT = 10000
 CONST_L_BEGIN_DOUBLE = 11000
 CONST_L_BEGIN_CHAR = 12000
 CONST_L_BEGIN_BOOL = 13000
+CONST_T_BEGIN_INT = 20000
+CONST_T_BEGIN_DOUBLE = 21000
+CONST_T_BEGIN_CHAR = 22000
+CONST_T_BEGIN_BOOL = 23000
+CONST_CT_BEGIN_INT = 30000
+CONST_CT_BEGIN_DOUBLE = 31000
+CONST_CT_BEGIN_CHAR = 32000
+CONST_CT_BEGIN_BOOL = 33000
 
 # Initialization of global counters
-gInt = 0
-gDouble = 1000
-gChar = 2000
-gBool = 3000
+gInt = CONST_G_BEGIN_INT
+gDouble = CONST_G_BEGIN_DOUBLE
+gChar = CONST_G_BEGIN_CHAR
+gBool = CONST_G_BEGIN_BOOL
 lInt = CONST_L_BEGIN_INT
 lDouble = CONST_L_BEGIN_DOUBLE
 lChar = CONST_L_BEGIN_CHAR
 lBool = CONST_L_BEGIN_BOOL
-tInt = 20000
-tDouble = 21000
-tChar = 22000
-tBool = 23000
-ctInt = 30000
-ctDouble = 31000
-ctChar = 32000
-ctBool = 33000
+tInt = CONST_T_BEGIN_INT
+tDouble = CONST_T_BEGIN_DOUBLE
+tChar = CONST_T_BEGIN_CHAR
+tBool = CONST_T_BEGIN_BOOL
+ctInt = CONST_CT_BEGIN_INT
+ctDouble = CONST_CT_BEGIN_DOUBLE
+ctChar = CONST_CT_BEGIN_CHAR
+ctBool = CONST_CT_BEGIN_BOOL
 
 # Initialize global variables with default values
 classDirTable = {}
@@ -49,6 +62,7 @@ semanticCube = SemanticCube()
 currentClass = ""
 currentMethod = ""
 currentMethodType = 0
+currentMethodCalling = ""
 currentType = 0
 currentDim = 0
 currentVarId = "" # The last variable seen in the parsing process.
@@ -61,6 +75,8 @@ currentParamDimsX = []
 currentParamDimsY = []
 currentParamDimX = -1
 currentParamDimY = -1
+currentParamsToBeSend = []
+currentParamsTypesToBeSend = []
 currentCtType = ""
 isCurrentVarPrivate = True
 isCurrentVarIndependent = False
@@ -71,6 +87,7 @@ decisionsPerLevel = [0]
 decisionLevel = 0
 ctDic = {}
 
+#TODO: Modify this function to accept dimX and dimY as well.
 # Helper methods for checking semantics during parsing process.
 def getNextAddress(type, scope):
 	global gInt, gDouble, gChar, gBool, lInt, lDouble, lChar, lBool, tInt, tDouble, tChar, tBool, ctInt, ctDouble, ctChar, ctBool
@@ -144,12 +161,16 @@ def getNextAddress(type, scope):
 			ctBool = ctBool + 1
 			return newAddress
 
-def resetLocalMemoryAddresses():
+def resetLocalAndTempMemoryAddresses():
 	global lInt, lDouble, lChar, lBool
 	lInt = CONST_L_BEGIN_INT
 	lDouble = CONST_L_BEGIN_DOUBLE
 	lChar = CONST_L_BEGIN_CHAR
 	lBool = CONST_L_BEGIN_BOOL
+	tInt = CONST_T_BEGIN_INT
+	tDouble = CONST_T_BEGIN_DOUBLE
+	tChar = CONST_T_BEGIN_CHAR
+	tBool = CONST_T_BEGIN_BOOL
 
 def validateAndAddVarsToScope(dimX, dimY):
 	for currentVarId in currentVarIds:
@@ -254,7 +275,7 @@ def generateQuadForUnaryOperator(operatorList):
 
 #PROGRAM
 def p_program(p):
-	'''program	: program_class MAIN np_program_1 class_block np_program_2'''
+	'''program	: np_program_0 program_class MAIN np_program_1 class_block np_program_2'''
 
 def p_program_class(p):
 	'''program_class	:	CLASS ID np_program_1 prog_inh class_block program_class
@@ -265,6 +286,10 @@ def p_prog_inh(p):
 							| empty'''
 
 #NEURAL POINTS FOR PROGRAM_CLASS
+def p_np_program_0(p):
+	'''np_program_0	:'''
+	quadManager.addQuad(operToCode.get("GOTO"), -1, -1, -1)
+
 def p_np_program_1(p):
 	'''np_program_1	:'''
 	global currentClass, funcDirTable
@@ -273,7 +298,7 @@ def p_np_program_1(p):
 		print("Error: Class '%s' redefined in line %d" % (currentClass, p.lineno))
 		sys.exit(0)
 	classDirTable[currentClass] = FuncDirTable()
-	funcDirRow = FuncDirRow("class", False, False)
+	funcDirRow = FuncDirRow("class", False, False, quadManager.quadCont)
 	classDirTable[currentClass].add(currentClass, None, funcDirRow)
 	# Assigns the function directory of the current class to the global variable funcDirTable.
 	funcDirTable = classDirTable[currentClass]
@@ -659,6 +684,8 @@ def p_np_method_4(p):
 	'''np_method_4	:'''
 	global currentMethod, currentMethodType
 	currentMethod = p[-1]
+	if currentClass == "Main" and currentMethod == "main":
+		quadManager.fill(0, quadManager.quadCont)
 	currentMethodType = currentType
 
 def p_np_method_5(p):
@@ -673,10 +700,10 @@ def p_np_method_6(p):
 	'''np_method_6	:'''
 	global funcDirTable, varTable
 	if funcDirTable.has(currentMethod, tuple(currentParamTypes)) == True:
-		print("Error: Method '%s' was already defined with the same parameters." % (currentMethod))
+		print("Error: Method '%s' at line %d was already defined with the same parameters." % (currentMethod, p.lineno))
 		sys.exit(0)
 	else:
-		newFuncDirRow = FuncDirRow(currentMethodType, isCurrentMethodIndependent, isCurrentMethodPrivate)
+		newFuncDirRow = FuncDirRow(currentMethodType, isCurrentMethodIndependent, isCurrentMethodPrivate, quadManager.quadCont)
 		funcDirTable.add(currentMethod, tuple(currentParamTypes), newFuncDirRow)
 		# Get the VarTable of the 'just created' function.
 		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
@@ -688,10 +715,13 @@ def p_np_method_6(p):
 				address = getNextAddress(currentParamTypes[index], "local")
 				newVarTableRow = VarTableRow(currentParamTypes[index], None, None, address, currentParamDimsX[index], currentParamDimsY[index])
 				varTable.add(currentParamIds[index], newVarTableRow)
+				quadManager.addQuad(operToCode.get("LOAD_PARAM"), -1, -1, address)
 
 def p_np_method_7(p):
 	'''np_method_7	:'''
-	resetLocalMemoryAddresses()
+	resetLocalAndTempMemoryAddresses()
+	# TODO: Check if in Python is necessary to release current VarTable.
+	quadManager.addQuad(operToCode.get("ENDPROC"), -1, -1, -1)
 
 #METHOD_PARAM
 def p_opt_method_param(p):
@@ -760,14 +790,53 @@ def p_create_obj(p):
 
 #FUNC_CALL
 def p_func_call(p):
-	'''func_call	: '(' func_param ')' '''
+	'''func_call	: np_func_call_1 '(' func_param np_func_call_3 ')' '''
 
 def p_func_param(p):
-	'''func_param	: expression more_fpar'''
+	'''func_param	: expression np_func_call_2 more_fpar'''
 
 def p_more_fpar(p):
 	'''more_fpar	: ',' func_param
 								| empty'''
+
+#NEURAL POINTS FOR FUNC_CALL
+def p_np_func_call_1(p):
+	'''np_func_call_1	:'''
+	global currentParamsToBeSend, currentParamsTypesToBeSend
+	quadManager.addQuad(operToCode.get("ERA"), -1, -1, -1)
+	currentParamsToBeSend[:] = []
+	currentParamsTypesToBeSend[:] = []
+
+def p_np_func_call_2(p):
+	'''np_func_call_2	:'''
+	global currentParamsToBeSend, currentParamsTypesToBeSend
+	param = quadManager.popOper()
+	paramType = quadManager.popType()
+	currentParamsToBeSend.append(param)
+	currentParamsTypesToBeSend.append(paramType)
+
+def p_np_func_call_3(p):
+	'''np_func_call_3	:'''
+	funcName = currentMethodCalling
+	if funcDirTable.has(funcName, tuple(currentParamsTypesToBeSend)):
+		funcDirRow = funcDirTable.getFuncDirRow(funcName, tuple(currentParamsTypesToBeSend))
+		funcStartPos = funcDirRow.startPos
+		funcType = funcDirRow.blockType
+		for param in currentParamsToBeSend:
+			# TODO: Validate whether param should be send by reference or by value.
+			quadManager.addQuad(operToCode.get("PARAM"), -1, -1, param)
+		quadManager.addQuad(operToCode.get("GOSUB"), -1, -1, funcStartPos)
+		if funcType != keywordMapper.get("void"):
+			returnAddress = getNextAddress(funcType, "temp")
+			quadManager.addQuad(operToCode.get("="), CONST_RETURN, -1, returnAddress)
+			quadManager.pushOper(returnAddress)
+			quadManager.pushType(funcType)
+	else:
+		#TODO: Find why p.lineno is not throwing a number.
+		print(funcName)
+		print(currentParamsTypesToBeSend)
+		print("Error: Function '%s' with the arguments used in line %d was not defined." % (funcName, p.lineno))
+		sys.exit(0)
 
 #BLOCK
 def p_block(p):
@@ -778,13 +847,21 @@ def p_bstmt(p):
 						| empty'''
 
 #STATEMENT
+#TODO: Fix the part refererring to calling a function
 def p_statement(p):
 	'''statement	: assignment
 								| condition
 								| loop
 								| in_out
 								| return
+								| this ID np_statement_1 func_call ';'
 								| var_decl'''
+
+#NEURAL POINTS FOR STATEMENT
+def p_np_statement_1(p):
+	'''np_statement_1	:'''
+	global currentMethodCalling
+	currentMethodCalling = p[-1]
 
 #CONDITION
 def p_condition(p):
@@ -950,8 +1027,27 @@ def p_return(p):
 	'''return	: RETURN ret_val ';' '''
 
 def p_ret_val(p):
-	'''ret_val	: expression
-							| empty'''
+	'''ret_val	: expression np_return_1
+							| np_return_2'''
+
+#NEURAL POINTS FOR RETURN
+def p_np_return_1(p):
+	'''np_return_1	:'''
+	returnValue = quadManager.popOper()
+	returnType = quadManager.popType()
+	if returnType != currentMethodType:
+		print("Error: Return value in line %d is not of type '%s'." % (p.lineno, invKeywordMapper.get(currentMethodType)))
+		sys.exit(0)
+	else:
+		quadManager.addQuad(operToCode.get("RETURN"), returnValue, -1, CONST_RETURN)
+
+def p_np_return_2(p):
+	'''np_return_2	:'''
+	if currentMethodType != keywordMapper.get("void"):
+		print("Error: Must return a value of type '%s' in line %d." % (invKeywordMapper.get(currentMethodType), p.lineno))
+		sys.exit(0)
+	else:
+		quadManager.addQuad(operToCode.get("RETURN"), -1, -1, -1)
 
 #EXPRESSION
 def p_expression(p):
@@ -1115,18 +1211,14 @@ def p_fact_body(p):
 								| this ID np_factor_1 fact_id'''
 
 def p_fact_id(p):
-	'''fact_id	: func_call
-							| id_access'''
+	'''fact_id	: np_factor_9 func_call
+							| np_factor_8 id_access'''
 
 #NEURAL POINTS FOR FACTOR
 def p_np_factor_1(p):
 	'''np_factor_1	:'''
 	global currentVarId
 	currentVarId = p[-1]
-	checkIfVariableWasDefined(currentVarId)
-	quadManager.pushOper(getVarAddress(currentVarId))
-	primType = getVarType(currentVarId)
-	quadManager.pushType(primType)
 
 def p_np_factor_2(p):
 	'''np_factor_2	:'''
@@ -1164,7 +1256,19 @@ def p_np_factor_7(p):
 	'''np_factor_7	:'''
 	operatorList = ["UMINUS", "~"]
 	generateQuadForUnaryOperator(operatorList)
-	
+
+def p_np_factor_8(p):
+	'''np_factor_8	:'''
+	checkIfVariableWasDefined(currentVarId)
+	quadManager.pushOper(getVarAddress(currentVarId))
+	primType = getVarType(currentVarId)
+	quadManager.pushType(primType)
+
+def p_np_factor_9(p):
+	'''np_factor_9	:'''
+	global currentMethodCalling
+	currentMethodCalling = p[-2]
+
 #ERROR
 def p_error(p):
 	if p:

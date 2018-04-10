@@ -32,5 +32,8 @@ class FuncDirTable(object):
 			blockParamsStr = "None"
 		print("created function with:", blockID, blockParamsStr, funcDirRow)
 	
+	def getFuncDirRow(self, blockId, blockParams):
+		return self.table[(blockId, blockParams)]
+
 	def getVarTable(self, blockID, blockParams):
 		return self.table[(blockID, blockParams)].varTable
