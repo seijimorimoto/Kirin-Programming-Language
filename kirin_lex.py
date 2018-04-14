@@ -100,7 +100,7 @@ def t_CONST_STRING(t):
 	return t
 
 def t_CONST_CHAR(t):
-	r'\’[^\’]\’'
+	r'\'[^\']\''
 	return t
 
 def t_CONST_BOOL(t):

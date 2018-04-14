@@ -16,6 +16,7 @@ from semanticCube import SemanticCube
 from quadrupleManager import QuadrupleManager
 from quadrupleManager import operToCode
 from quadrupleManager import codeToOper
+from stack import Stack
 
 # Constants for initializing memory addresses.
 CONST_RETURN = -2
@@ -75,8 +76,8 @@ currentParamDimsX = []
 currentParamDimsY = []
 currentParamDimX = -1
 currentParamDimY = -1
-currentParamsToBeSend = []
-currentParamsTypesToBeSend = []
+stackParamsToBeSend = Stack()
+stackParamsTypesToBeSend = Stack()
 currentCtType = ""
 isCurrentVarPrivate = True
 isCurrentVarIndependent = False
@@ -790,7 +791,7 @@ def p_create_obj(p):
 
 #FUNC_CALL
 def p_func_call(p):
-	'''func_call	: np_func_call_1 '(' func_param np_func_call_3 ')' '''
+	'''func_call	: np_func_call_1 '(' func_param np_func_call_3 ')' np_func_call_4'''
 
 def p_func_param(p):
 	'''func_param	: expression np_func_call_2 more_fpar'''
@@ -802,22 +803,27 @@ def p_more_fpar(p):
 #NEURAL POINTS FOR FUNC_CALL
 def p_np_func_call_1(p):
 	'''np_func_call_1	:'''
-	global currentParamsToBeSend, currentParamsTypesToBeSend
+	global stackParamsToBeSend, stackParamsTypesToBeSend
 	quadManager.addQuad(operToCode.get("ERA"), -1, -1, -1)
-	currentParamsToBeSend[:] = []
-	currentParamsTypesToBeSend[:] = []
+	stackParamsToBeSend.push([])
+	stackParamsTypesToBeSend.push([])
+	quadManager.pushOp(operToCode.get("("))
 
 def p_np_func_call_2(p):
 	'''np_func_call_2	:'''
-	global currentParamsToBeSend, currentParamsTypesToBeSend
+	global stackParamsToBeSend, stackParamsTypesToBeSend
 	param = quadManager.popOper()
 	paramType = quadManager.popType()
+	currentParamsToBeSend = stackParamsToBeSend.top()
 	currentParamsToBeSend.append(param)
+	currentParamsTypesToBeSend = stackParamsTypesToBeSend.top()
 	currentParamsTypesToBeSend.append(paramType)
 
 def p_np_func_call_3(p):
 	'''np_func_call_3	:'''
 	funcName = currentMethodCalling
+	currentParamsToBeSend = stackParamsToBeSend.top()
+	currentParamsTypesToBeSend = stackParamsTypesToBeSend.top()
 	if funcDirTable.has(funcName, tuple(currentParamsTypesToBeSend)):
 		funcDirRow = funcDirTable.getFuncDirRow(funcName, tuple(currentParamsTypesToBeSend))
 		funcStartPos = funcDirRow.startPos
@@ -826,6 +832,7 @@ def p_np_func_call_3(p):
 			# TODO: Validate whether param should be send by reference or by value.
 			quadManager.addQuad(operToCode.get("PARAM"), -1, -1, param)
 		quadManager.addQuad(operToCode.get("GOSUB"), -1, -1, funcStartPos)
+		# TODO: Add error message for checking if you called a void function in an expression.
 		if funcType != keywordMapper.get("void"):
 			returnAddress = getNextAddress(funcType, "temp")
 			quadManager.addQuad(operToCode.get("="), CONST_RETURN, -1, returnAddress)
@@ -834,9 +841,16 @@ def p_np_func_call_3(p):
 	else:
 		#TODO: Find why p.lineno is not throwing a number.
 		print(funcName)
-		print(currentParamsTypesToBeSend)
+		print(stackParamsTypesToBeSend.top())
 		print("Error: Function '%s' with the arguments used in line %d was not defined." % (funcName, p.lineno))
 		sys.exit(0)
+
+def p_np_func_call_4(p):
+	'''np_func_call_4	:'''
+	# Remove the "false bottom" in the stack of operators.
+	quadManager.popOp()
+	stackParamsToBeSend.pop()
+	stackParamsTypesToBeSend.pop()
 
 #BLOCK
 def p_block(p):
