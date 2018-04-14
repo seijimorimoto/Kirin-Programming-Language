@@ -63,7 +63,6 @@ semanticCube = SemanticCube()
 currentClass = ""
 currentMethod = ""
 currentMethodType = 0
-currentMethodCalling = ""
 currentType = 0
 currentDim = 0
 currentVarId = "" # The last variable seen in the parsing process.
@@ -78,6 +77,7 @@ currentParamDimX = -1
 currentParamDimY = -1
 stackParamsToBeSend = Stack()
 stackParamsTypesToBeSend = Stack()
+stackFunctionCalls = Stack()
 currentCtType = ""
 isCurrentVarPrivate = True
 isCurrentVarIndependent = False
@@ -163,7 +163,7 @@ def getNextAddress(type, scope):
 			return newAddress
 
 def resetLocalAndTempMemoryAddresses():
-	global lInt, lDouble, lChar, lBool
+	global lInt, lDouble, lChar, lBool, tInt, tDouble, tChar, tBool
 	lInt = CONST_L_BEGIN_INT
 	lDouble = CONST_L_BEGIN_DOUBLE
 	lChar = CONST_L_BEGIN_CHAR
@@ -824,7 +824,7 @@ def p_np_func_call_2(p):
 
 def p_np_func_call_3(p):
 	'''np_func_call_3	:'''
-	funcName = currentMethodCalling
+	funcName = stackFunctionCalls.pop()
 	currentParamsToBeSend = stackParamsToBeSend.top()
 	currentParamsTypesToBeSend = stackParamsTypesToBeSend.top()
 	if funcDirTable.has(funcName, tuple(currentParamsTypesToBeSend)):
@@ -874,8 +874,8 @@ def p_statement(p):
 #NEURAL POINTS FOR STATEMENT
 def p_np_statement_1(p):
 	'''np_statement_1	:'''
-	global currentMethodCalling
-	currentMethodCalling = p[-1]
+	global stackFunctionCalls
+	stackFunctionCalls.push(p[-1])
 
 #CONDITION
 def p_condition(p):
@@ -1280,8 +1280,8 @@ def p_np_factor_8(p):
 
 def p_np_factor_9(p):
 	'''np_factor_9	:'''
-	global currentMethodCalling
-	currentMethodCalling = p[-2]
+	global stackFunctionCalls
+	stackFunctionCalls.push(p[-2])
 
 #ERROR
 def p_error(p):

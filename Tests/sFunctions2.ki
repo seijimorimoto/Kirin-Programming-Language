@@ -1,11 +1,11 @@
 Main {
   public var i, j : int;
 
-  public_func void uno(a : int) {
+  public_func void uno(a : int, b : int) {
     var i : int;
     i = a*2;
     if (i < a + 4) {
-      uno(a + 1);
+      uno(a + 1, b);
     }
     print(i);
   }
@@ -18,7 +18,8 @@ Main {
   public_func void main() {
     i = 2;
     j = i*2 - 1;
-    uno(j);
+    uno(j, j);
     print(i + dos(i + j));
+    uno(i, dos(i));
   }
 }
