@@ -296,7 +296,7 @@ def p_np_program_1(p):
 	global currentClass, funcDirTable
 	currentClass = p[-1]
 	if currentClass in classDirTable:
-		print("Error: Class '%s' redefined in line %d" % (currentClass, p.lineno))
+		print("Error: Class '%s' redefined in line %d" % (currentClass, p.lexer.lineno))
 		sys.exit(0)
 	classDirTable[currentClass] = FuncDirTable()
 	funcDirRow = FuncDirRow("class", False, False, quadManager.quadCont)
@@ -472,7 +472,7 @@ def p_np_vars_5(p):
 	expressionType = quadManager.popType()
 	answerType = semanticCube.checkType(currentOp, currentType, expressionType)
 	if invKeywordMapper.get(answerType) == "error":
-		print("Error: Type mismatch in line %d" % (p.lineno))
+		print("Error: Type mismatch in line %d" % (p.lexer.lineno))
 		sys.exit(0)
 	for id in currentVarIds:
 		address = getVarAddress(id)
@@ -574,10 +574,11 @@ def p_ass_value(p):
 #NEURAL POINTS FOR ASSIGNMENT
 def p_np_assignment_1(p):
 	'''np_assignment_1	:'''
-	global currentVarId, currentVarIdToAssign
+	global currentVarId
 	currentVarId = p[-1]
-	currentVarIdToAssign = p[-1]
 	checkIfVariableWasDefined(currentVarId)
+	quadManager.pushOper(getVarAddress(currentVarId))
+	quadManager.pushType(getVarType(currentVarId))
 
 def p_np_assignment_2(p):
 	'''np_assignment_2	:'''
@@ -588,11 +589,13 @@ def p_np_assignment_3(p):
 	currentOp = quadManager.popOp()
 	expressionValue = quadManager.popOper()
 	expressionType = quadManager.popType()
-	if invKeywordMapper.get(expressionType) == "error":
-		print("Error: Type mismatch in line %d." % (p.lineno))
+	assignedVar = quadManager.popOper()
+	assignedVarType = quadManager.popType()
+	answerType = semanticCube.checkType(currentOp, assignedVarType, expressionType)
+	if invKeywordMapper.get(answerType) == "error":
+		print("Error: Type mismatch in line %d." % (p.lexer.lineno))
 		sys.exit(0)
-	address = getVarAddress(currentVarIdToAssign)
-	quadManager.addQuad(currentOp, -1, expressionValue, address)
+	quadManager.addQuad(currentOp, -1, expressionValue, assignedVar)
 
 #THIS
 def p_this(p):
@@ -701,7 +704,7 @@ def p_np_method_6(p):
 	'''np_method_6	:'''
 	global funcDirTable, varTable
 	if funcDirTable.has(currentMethod, tuple(currentParamTypes)) == True:
-		print("Error: Method '%s' at line %d was already defined with the same parameters." % (currentMethod, p.lineno))
+		print("Error: Method '%s' at line %d was already defined with the same parameters." % (currentMethod, p.lexer.lineno))
 		sys.exit(0)
 	else:
 		newFuncDirRow = FuncDirRow(currentMethodType, isCurrentMethodIndependent, isCurrentMethodPrivate, quadManager.quadCont)
@@ -839,10 +842,7 @@ def p_np_func_call_3(p):
 			quadManager.pushOper(returnAddress)
 			quadManager.pushType(funcType)
 	else:
-		#TODO: Find why p.lineno is not throwing a number.
-		print(funcName)
-		print(stackParamsTypesToBeSend.top())
-		print("Error: Function '%s' with the arguments used in line %d was not defined." % (funcName, p.lineno))
+		print("Error: Function '%s' with the arguments used in line %d was not defined." % (funcName, p.lexer.lineno))
 		sys.exit(0)
 
 def p_np_func_call_4(p):
@@ -896,7 +896,7 @@ def p_np_condition_1(p):
 	expressionType = quadManager.popType()
 	expressionValue = quadManager.popOper()
 	if invKeywordMapper.get(expressionType) != "bool":
-		print("Error: Expected boolean expression after 'if'/'elseif' in line %d" % (p.lineno))
+		print("Error: Expected boolean expression after 'if'/'elseif' in line %d" % (p.lexer.lineno))
 		sys.exit(0)
 	quadManager.addQuad(operToCode.get("GOTOF"), expressionValue, -1, -1)
 	quadManager.pushJump(quadManager.quadCont - 1)
@@ -947,7 +947,7 @@ def p_np_for_loop_2(p):
 	expressionType = quadManager.popType()
 	expressionValue = quadManager.popOper()
 	if invKeywordMapper.get(expressionType) != 'bool':
-		print("Error: Expected boolean expression in second block of 'for' statement in line %d" % (p.lineno))
+		print("Error: Expected boolean expression in second block of 'for' statement in line %d" % (p.lexer.lineno))
 		sys.exit(0)
 	quadManager.addQuad(operToCode.get("GOTOF"), expressionValue, -1, -1)
 	quadManager.pushJump(quadManager.quadCont - 1) # quad that jumps to the end of the loop
@@ -967,7 +967,7 @@ def p_np_for_loop_3(p):
 	forVarIdAddress = getVarAddress(forVarId)
 	forVarIdTypePrimType = getVarType(p[-3])
 	if semanticCube.checkType(operToCode.get("="), expressionType, forVarIdTypePrimType) == keywordMapper.get("error"):
-		print("Error: Type mismatch in line %d" % (p.lineno))
+		print("Error: Type mismatch in line %d" % (p.lexer.lineno))
 		sys.exit(0)
 	quadManager.addQuad(operToCode.get("="), -1, expressionAns, forVarIdAddress) 
 	quadManager.addQuad(operToCode.get("GOTO"), -1, -1, conditionBegin)
@@ -996,7 +996,7 @@ def p_np_while_loop_2(p):
 	expressionType = quadManager.popType()
 	expressionValue = quadManager.popOper()
 	if invKeywordMapper.get(expressionType) != "bool":
-		print("Error: Expected boolean expression after 'while' in line %d" % (p.lineno))
+		print("Error: Expected boolean expression after 'while' in line %d" % (p.lexer.lineno))
 		sys.exit(0)
 	quadManager.addQuad(operToCode.get("GOTOF"), expressionValue, -1, -1)
 	quadManager.pushJump(quadManager.quadCont - 1)
@@ -1050,7 +1050,7 @@ def p_np_return_1(p):
 	returnValue = quadManager.popOper()
 	returnType = quadManager.popType()
 	if returnType != currentMethodType:
-		print("Error: Return value in line %d is not of type '%s'." % (p.lineno, invKeywordMapper.get(currentMethodType)))
+		print("Error: Return value in line %d is not of type '%s'." % (p.lexer.lineno, invKeywordMapper.get(currentMethodType)))
 		sys.exit(0)
 	else:
 		quadManager.addQuad(operToCode.get("RETURN"), returnValue, -1, CONST_RETURN)
@@ -1058,7 +1058,7 @@ def p_np_return_1(p):
 def p_np_return_2(p):
 	'''np_return_2	:'''
 	if currentMethodType != keywordMapper.get("void"):
-		print("Error: Must return a value of type '%s' in line %d." % (invKeywordMapper.get(currentMethodType), p.lineno))
+		print("Error: Must return a value of type '%s' in line %d." % (invKeywordMapper.get(currentMethodType), p.lexer.lineno))
 		sys.exit(0)
 	else:
 		quadManager.addQuad(operToCode.get("RETURN"), -1, -1, -1)
