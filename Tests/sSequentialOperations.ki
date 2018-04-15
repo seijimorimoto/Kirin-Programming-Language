@@ -1,4 +1,4 @@
-class SequentialOperations {
+Main {
   
   public_func independent void op(num1 : int, num2 : int) {
     var res : int;
@@ -10,4 +10,6 @@ class SequentialOperations {
     res = num1 + num2;
     print("La suma de ", num1, " y ", num2, " es ", res, "\n");
   }
+
+  public_func void main() {}
 }

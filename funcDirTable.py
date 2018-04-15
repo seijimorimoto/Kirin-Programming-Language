@@ -24,8 +24,7 @@ class FuncDirTable(object):
 			else:
 				blockParamsStr = "("
 				for param in blockParams:
-					dim, primType = param
-					blockParamsStr = blockParamsStr + "(%d, %s), " % (dim, invKeywordMapper.get(primType))
+					blockParamsStr = blockParamsStr + invKeywordMapper.get(param) + ", "
 				blockParamsStr = list(blockParamsStr.strip())
 				blockParamsStr[len(blockParamsStr) - 1] = ')'
 				blockParamsStr = "".join(blockParamsStr)
@@ -33,5 +32,8 @@ class FuncDirTable(object):
 			blockParamsStr = "None"
 		print("created function with:", blockID, blockParamsStr, funcDirRow)
 	
+	def getFuncDirRow(self, blockId, blockParams):
+		return self.table[(blockId, blockParams)]
+
 	def getVarTable(self, blockID, blockParams):
 		return self.table[(blockID, blockParams)].varTable

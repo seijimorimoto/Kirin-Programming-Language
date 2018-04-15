@@ -1,4 +1,4 @@
-class HelloWorld {
+Main {
     public_func independent void main() {
         print("Hello World\n");
     }

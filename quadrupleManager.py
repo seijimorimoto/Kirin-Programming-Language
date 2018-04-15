@@ -6,7 +6,7 @@
 from stack import Stack
 from quadruple import Quadruple
 
-operatorMapper = {
+operToCode = {
   '=': 101,
   '+': 102,
   '-': 103,
@@ -26,10 +26,17 @@ operatorMapper = {
   'GOTO': 401,
   'GOTOF': 402,
   'GOTOT': 403,
+  'GOSUB': 404,
+  'ERA': 501,
+  'PARAM': 502,
+  'PARAM_REF': 503,
+  'LOAD_PARAM': 504,
+  'RETURN': 505,
+  'ENDPROC': 506,
   '(': 1001
 }
 
-invOperatorMapper = {
+codeToOper = {
   101: '=',
   102: '+',
   103: '-',
@@ -49,6 +56,13 @@ invOperatorMapper = {
   401: 'GOTO',
   402: 'GOTOF',
   403: 'GOTOT',
+  404: 'GOSUB',
+  501: 'ERA',
+  502: 'PARAM',
+  503: 'PARAM_REF',
+  504: 'LOAD_PARAM',
+  505: 'RETURN',
+  506: 'ENDPROC',
   1001: '('
 }
 
@@ -78,7 +92,7 @@ class QuadrupleManager(object):
     self.quadCont = self.quadCont + 1
   
   def pushOp(self, op):
-    self.stackOp.push(operatorMapper.get(op))
+    self.stackOp.push(operToCode.get(op))
   
   def popOp(self):
     return self.stackOp.pop()
@@ -123,6 +137,6 @@ class QuadrupleManager(object):
       file.write(str(quad))
       file.write("\n")
       # Print for debugging.
-      print("%d) %s, %d, %s, %d" % (cont, invOperatorMapper.get(quad.op), quad.oper1, quad.oper2, quad.oper3))
+      print("%d) %s, %d, %s, %d" % (cont, codeToOper.get(quad.op), quad.oper1, quad.oper2, quad.oper3))
       cont = cont + 1
     file.close()

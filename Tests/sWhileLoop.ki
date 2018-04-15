@@ -1,5 +1,5 @@
-class WhileLoop {
-  public_func void myFunction() {
+Main {
+  public_func void main() {
     var x, res: int = 0;
     while (x < 5) {
       var y : int = 0;

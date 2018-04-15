@@ -8,11 +8,12 @@ from semanticCube import invKeywordMapper
 
 class FuncDirRow(object):
 
-	def __init__(self, blockType, isIndependent, isPrivate):
+	def __init__(self, blockType, isIndependent, isPrivate, startPos):
 		self.blockType = blockType # Numeric code representation of a type.
 		self.isIndependent = isIndependent
 		self.isPrivate = isPrivate
+		self.startPos = startPos
 		self.varTable = VarTable()
 
 	def __str__(self):
-		return str(invKeywordMapper.get(self.blockType)) + " " + str(self.isIndependent) + " " + str(self.isPrivate)
+		return str(invKeywordMapper.get(self.blockType)) + " " + str(self.isIndependent) + " " + str(self.isPrivate) + " " + str(self.startPos)
