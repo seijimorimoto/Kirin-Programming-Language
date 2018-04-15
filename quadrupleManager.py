@@ -66,7 +66,6 @@ codeToOper = {
   1001: '('
 }
 
-
 class QuadrupleManager(object):
   
   def __init__(self):
