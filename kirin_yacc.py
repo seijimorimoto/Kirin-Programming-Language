@@ -762,14 +762,20 @@ def p_np_mat_vec_access_4(p):
 		print("Error: '%s' at line %d is not a variable of the proper dimension." % (idBase, p.lexer.lineno))
 		sys.exit(0)
 
-	tempAddressForBase = getNextAddress(keywordMapper.get("int"), "temp", 1, 1)
-	# Stores the base id of the vector/matrix in a temporal address, so that we can add it
+	# Stores the base id of the vector/matrix in a constant address, so that we can add it
 	# to the shifting value accummulated so far. This is necessary since the "+" operation adds
 	# the values stored in the addresses, not the addresses themselves.
-	quadManager.addQuad(operToCode.get("="), -1, idBase, tempAddressForBase)
+	if idBase in ctDic:
+		constantAddressForBase = ctDic[idBase]
+	else:
+		constantAddressForBase = getNextAddress(keywordMapper.get("int"), "const", 1, 1)
+	
+	quadManager.addQuad(operToCode.get("="), -1, idBase, constantAddressForBase)
+
 	indexingAddress = getNextAddress(keywordMapper.get("int"), "temp", 1, 1)
-	quadManager.addQuad(operToCode.get("+"), aux, tempAddressForBase, indexingAddress)
+	quadManager.addQuad(operToCode.get("+"), aux, constantAddressForBase, indexingAddress)
 	# Specifies that 'indexingAddress' does not contain a value, but instead is a reference to another address.
+	# TODO: Fix how REF works (specially in loops).
 	quadManager.addQuad(operToCode.get("REF"), -1, -1, indexingAddress)
 	quadManager.pushOper(indexingAddress)
 	quadManager.popOp() # Removes false bottom operator.
@@ -923,7 +929,8 @@ def p_func_call(p):
 	'''func_call	: np_func_call_1 '(' func_param np_func_call_3 ')' np_func_call_4'''
 
 def p_func_param(p):
-	'''func_param	: expression np_func_call_2 more_fpar'''
+	'''func_param	: expression np_func_call_2 more_fpar
+								| empty'''
 
 def p_more_fpar(p):
 	'''more_fpar	: ',' func_param

@@ -109,7 +109,7 @@ def extractValue(address):
   # From here on, we know the address is local.
   # Check if the address is a reference to another address.
   if address in stackDicReferences[currentStackLevel]:
-    targetStackLevel, targetAddress = stackDicReferences[currentStackLevel]
+    targetStackLevel, targetAddress = stackDicReferences[currentStackLevel][address]
     # Return value contained in the reference.
     return memStack[targetStackLevel][targetAddress]
 
@@ -129,7 +129,7 @@ def setValue(address, value):
   # From here on, we know the address is local.
   # Check if the address is a reference to another address.
   elif address in stackDicReferences[currentStackLevel]:
-    targetStackLevel, targetAddress = stackDicReferences[currentStackLevel]
+    targetStackLevel, targetAddress = stackDicReferences[currentStackLevel][address]
     # Set the value in the referenced address.
     memStack[targetStackLevel][targetAddress] = value
   
@@ -462,8 +462,10 @@ def executeQuad(quad):
 
   # OPER -> print
   if quad[0] == operToCode.get("print"):
-    print("print")
-    if getType(quad[3]) == "int":
+    # print("print")
+    if quad[3] == -1:
+      print()
+    elif getType(quad[3]) == "int":
       print(extractValue(quad[3]), end = "")
     elif getType(quad[3]) == "double":
       print(extractValue(quad[3]), end = "")
@@ -471,8 +473,6 @@ def executeQuad(quad):
       print(extractValue(quad[3]), end = "")
     elif getType(quad[3]) == "bool":
       print(extractValue(quad[3]), end = "")
-    elif quad[3] == -1:
-      print()
 
   # OPER -> scan
   if quad[0] == operToCode.get("scan"):
@@ -480,14 +480,14 @@ def executeQuad(quad):
       inputBuffer = input()
       inputBufferCont = 0
       if getType(quad[3]) == "int":
-        setValue(quad[3], inputBuffer)
+        setValue(quad[3], int(inputBuffer))
       elif getType(quad[3]) == "double":
-        setValue(quad[3], inputBuffer)
+        setValue(quad[3], float(inputBuffer))
       elif getType(quad[3]) == "char":
         setValue(quad[3], inputBuffer[inputBufferCont])
         inputBufferCont = inputBufferCont + 1
       elif getType(quad[3]) == "bool":
-        setValue(quad[3], inputBuffer)
+        setValue(quad[3], inputBuffer == 'true')
     # End Buffer Start
 
     if quad[1] == -1:
@@ -555,8 +555,15 @@ def executeQuad(quad):
   # OPER -> RETURN
   if quad[0] == operToCode.get("RETURN"):
     setValue(CONST_RETURN, extractValue(quad[1]))
+    if currentStackLevel == 0:
+      print("Program has finished successfully!")
+      sys.exit(0)
+    editingContext = editingContext - 1
+    instructionPointer = prevInstructionPointer.pop()
+    currentStackLevel = prevStackLevel.pop()
 
 
+  # OPER -> ENDPROC
   if quad[0] == operToCode.get("ENDPROC"):
     if currentStackLevel == 0:
       print("Program has finished successfully!")
@@ -566,6 +573,16 @@ def executeQuad(quad):
     currentStackLevel = prevStackLevel.pop()
 
 
+  # OPER -> VER
+  if quad[0] == operToCode.get("VER"):
+    if extractValue(quad[1]) >= quad[3]:
+      print("Runtime Error: Index out of bounds.")
+      sys.exit(0)
+  
+
+  # OPER -> REF
+  if quad[0] == operToCode.get("REF"):
+    stackDicReferences[currentStackLevel][quad[3]] = (currentStackLevel, extractValue(quad[3]))
 
 # Main
 if len(sys.argv) != 2:
@@ -574,6 +591,6 @@ if len(sys.argv) != 2:
 
 loadQuadList(sys.argv[1])
 while(True):
-  print(quadList[instructionPointer])
+  # print(quadList[instructionPointer])
   executeQuad(quadList[instructionPointer])
   instructionPointer = instructionPointer + 1

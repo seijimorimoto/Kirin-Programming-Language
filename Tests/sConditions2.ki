@@ -1,6 +1,12 @@
-class Conditions2 {
+Main {
   public_func void myFunction() {
     var x, y, z, w, v: int;
+    
+    scan(x);
+    scan(y);
+    scan(z);
+    scan(w);
+    scan(v);
 
     if (x < y) {
       print(x);
@@ -13,10 +19,8 @@ class Conditions2 {
     }
     print(v);
   }
-}
 
-Main {
   public_func independent void main() {
-    print("THIS IS A DUMMY MAIN");
+    myFunction();
   }
 }
