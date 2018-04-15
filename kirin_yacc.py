@@ -78,6 +78,7 @@ currentParamDimY = -1
 stackParamsToBeSend = Stack()
 stackParamsTypesToBeSend = Stack()
 stackFunctionCalls = Stack()
+stackDimSizes = Stack()
 currentCtType = ""
 isCurrentVarPrivate = True
 isCurrentVarIndependent = False
@@ -90,76 +91,88 @@ ctDic = {}
 
 #TODO: Modify this function to accept dimX and dimY as well.
 # Helper methods for checking semantics during parsing process.
-def getNextAddress(type, scope):
+def getNextAddress(type, scope, dimX, dimY):
 	global gInt, gDouble, gChar, gBool, lInt, lDouble, lChar, lBool, tInt, tDouble, tChar, tBool, ctInt, ctDouble, ctChar, ctBool
 	typeAsStr = invKeywordMapper.get(type)
+
+	# Set the shift constant based on dimX and dimY.
+	# The shift constant is how addresses we are going to skip for the next time we want to get an address
+	# (This is necessary for reserving addresses for vectors and matrices).
+	if dimX != -1:
+		if dimY != -1:
+			shiftConstant = dimX * dimY
+		else:
+			shiftConstant = dimX
+	else:
+		shiftConstant = 1
+
 	if scope == 'global':
 		if typeAsStr == 'int':
 			newAddress = gInt
-			gInt = gInt + 1
+			gInt = gInt + shiftConstant
 			return newAddress
 		if typeAsStr == 'double':
 			newAddress = gDouble
-			gDouble = gDouble + 1
+			gDouble = gDouble + shiftConstant
 			return newAddress
 		if typeAsStr == 'char':
 			newAddress = gChar
-			gChar = gChar + 1
+			gChar = gChar + shiftConstant
 			return newAddress
 		if typeAsStr == 'bool':
 			newAddress = gBool
-			gBool = gBool + 1
+			gBool = gBool + shiftConstant
 			return newAddress
 	elif scope == 'local':
 		if typeAsStr == 'int':
 			newAddress = lInt
-			lInt = lInt + 1
+			lInt = lInt + shiftConstant
 			return newAddress
 		if typeAsStr == 'double':
 			newAddress = lDouble
-			lDouble = lDouble + 1
+			lDouble = lDouble + shiftConstant
 			return newAddress
 		if typeAsStr == 'char':
 			newAddress = lChar
-			lChar = lChar + 1
+			lChar = lChar + shiftConstant
 			return newAddress
 		if typeAsStr == 'bool':
 			newAddress = lBool
-			lBool = lBool + 1
+			lBool = lBool + shiftConstant
 			return newAddress
 	elif scope == 'temp':
 		if typeAsStr == 'int':
 			newAddress = tInt
-			tInt = tInt + 1
+			tInt = tInt + shiftConstant
 			return newAddress
 		if typeAsStr == 'double':
 			newAddress = tDouble
-			tDouble = tDouble + 1
+			tDouble = tDouble + shiftConstant
 			return newAddress
 		if typeAsStr == 'char':
 			newAddress = tChar
-			tChar = tChar + 1
+			tChar = tChar + shiftConstant
 			return newAddress
 		if typeAsStr == 'bool':
 			newAddress = tBool
-			tBool = tBool + 1
+			tBool = tBool + shiftConstant
 			return newAddress
 	elif scope == 'const':
 		if typeAsStr == 'int':
 			newAddress = ctInt
-			ctInt = ctInt + 1
+			ctInt = ctInt + shiftConstant
 			return newAddress
 		if typeAsStr == 'double':
 			newAddress = ctDouble
-			ctDouble = ctDouble + 1
+			ctDouble = ctDouble + shiftConstant
 			return newAddress
 		if typeAsStr == 'char':
 			newAddress = ctChar
-			ctChar = ctChar + 1
+			ctChar = ctChar + shiftConstant
 			return newAddress
 		if typeAsStr == 'bool':
 			newAddress = ctBool
-			ctBool = ctBool + 1
+			ctBool = ctBool + shiftConstant
 			return newAddress
 
 def resetLocalAndTempMemoryAddresses():
@@ -181,7 +194,7 @@ def validateAndAddVarsToScope(dimX, dimY):
 				print("Error: Variable '%s' was already defined." % (currentVarId))
 				sys.exit(0)
 			else:
-				address = getNextAddress(currentType, "global")
+				address = getNextAddress(currentType, "global", dimX, dimY)
 				newVarTableRow = VarTableRow(currentType, isCurrentVarIndependent, isCurrentVarPrivate, address, dimX, dimY)
 				varTable.add(currentVarId, newVarTableRow)
 		else:
@@ -190,7 +203,7 @@ def validateAndAddVarsToScope(dimX, dimY):
 				print("Error: Variable '%s' was already defined." % (currentVarId))
 				sys.exit(0)
 			else:
-				address = getNextAddress(currentType, "local")
+				address = getNextAddress(currentType, "local", dimX, dimY)
 				newVarTableRow = VarTableRow(currentType, None, None, address, dimX, dimY)
 				varTable.add(currentVarId, newVarTableRow)
 
@@ -232,6 +245,18 @@ def getVarType(id):
 			varTable = funcDirTable.getVarTable(currentClass, None)
 			return varTable.get(id).varType
 
+def getVarDims(id):
+	if refersToClass == True or currentMethod == '':
+		varTable = funcDirTable.getVarTable(currentClass, None)
+		return (varTable.get(id).dimX, varTable.get(id).dimY)
+	else:
+		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+		if varTable.has(id):
+			return (varTable.get(id).dimX, varTable.get(id).dimY)
+		else:
+			varTable = funcDirTable.getVarTable(currentClass, None)
+			return (varTable.get(id).dimX, varTable.get(id).dimY)
+
 def generateQuadForBinaryOperator(operatorList):
 	operatorMatch = False
 	topOp = codeToOper.get(quadManager.topOp())
@@ -249,7 +274,7 @@ def generateQuadForBinaryOperator(operatorList):
 		if invKeywordMapper.get(resType) == "error":
 			print("Error: Binary '%s' does not support operands of type '%s', '%s'." % (codeToOper.get(operator), invKeywordMapper.get(operType1), invKeywordMapper.get(operType2)))
 			sys.exit(0)
-		resAddress = getNextAddress(resType, "temp")
+		resAddress = getNextAddress(resType, "temp", 1, 1)
 		quadManager.addQuad(operator, oper1, oper2, resAddress)
 		quadManager.pushOper(resAddress)
 		quadManager.pushType(resType)
@@ -269,7 +294,7 @@ def generateQuadForUnaryOperator(operatorList):
 		if invKeywordMapper.get(resType) == "error":
 			print("Error: Unary '%s' does not support operand of type '%s'." % (codeToOper.get(operator), invKeywordMapper.get(operType)))
 			sys.exit(0)
-		resAddress = getNextAddress(resType, "temp")
+		resAddress = getNextAddress(resType, "temp", 1, 1)
 		quadManager.addQuad(operator, -1, oper, resAddress)
 		quadManager.pushOper(resAddress)
 		quadManager.pushType(resType)
@@ -502,6 +527,9 @@ def p_np_vector_1(p):
 	'''np_vector_1	:'''
 	dimX = int(p[-2])
 	dimY = -1
+	if dimX == 0:
+		print("Error: Vectors at line %d must have a positive integer size." % (p.lexer.lineno))
+		sys.exit(0)
 	validateAndAddVarsToScope(dimX, dimY)
 
 def p_np_vector_2(p):
@@ -522,6 +550,9 @@ def p_np_matrix_1(p):
 	'''np_matrix_1	:'''
 	dimX = int(p[-4])
 	dimY = int(p[-2])
+	if dimX == 0 or dimY == 0:
+		print("Error: Matrices at line %d must have a positive integer size in each dimension." % (p.lexer.lineno))
+		sys.exit(0)
 	validateAndAddVarsToScope(dimX, dimY)
 
 def p_np_matrix_2(p):
@@ -641,15 +672,95 @@ def p_mat_more(p):
 
 #MAT_VEC_ACCESS
 def p_mat_vec_access(p):
-	'''mat_vec_access	: '[' mat_vec_index mat_access ']' '''
+	'''mat_vec_access	: '[' np_mat_vec_access_1 mat_vec_index mat_access np_mat_vec_access_4 ']' '''
 
 def p_mat_vec_index(p):
 	'''mat_vec_index	: '_'
-										| expression '''
+										| expression np_mat_vec_access_2'''
 
 def p_mat_access(p):
-	'''mat_access	: ',' mat_vec_index
+	'''mat_access	: ',' np_mat_vec_access_3 mat_vec_index
 								| empty'''
+
+#NEURAL POINTS FOR MAT_VEC_ACCESS
+def p_np_mat_vec_access_1(p):
+	'''np_mat_vec_access_1	:'''
+	id = quadManager.popOper()
+	dimX, dimY = getVarDims(currentVarId)
+	stackDimSizes.push((dimX, dimY))
+
+	if dimX == -1:
+		print("Error: '%s' at line %d is not a variable of the proper dimension." % (currentVarId, p.lexer.lineno))
+		sys.exit(0)
+	
+	quadManager.pushDim(id, 1) # We are in the first dimension of the variable 'id'.
+	quadManager.pushOp(operToCode.get("(")) # Push a false bottom operator.
+
+def p_np_mat_vec_access_2(p):
+	'''np_mat_vec_access_2	:'''
+	id, dim = quadManager.topDim()
+	dims = stackDimSizes.top()
+
+	quadManager.addQuad(operToCode.get("VER"), quadManager.topOper(), -1, dims[dim - 1])
+	# If the current dim is not the last one...
+	if dim < len(dims) and dims[dim] != -1:
+		aux = quadManager.popOper()
+		dimX = dims[0]
+		tempAddress = getNextAddress(keywordMapper.get("int"), "temp", 1, 1)
+		
+		# If dimX is not in the directory of constants...
+		if dimX not in ctDic:
+			# Assign dimX to an address in the scope of constants.
+			constDimAddress = getNextAddress(keywordMapper.get("int"), "const", 1, 1)
+			quadManager.addQuad(operToCode.get("="), -1, dimX, constDimAddress)
+		else:
+			constDimAddress = ctDic.get(dimX)
+		
+		quadManager.addQuad(operToCode.get("*"), aux, constDimAddress, tempAddress)
+		quadManager.pushOper(tempAddress)
+
+	if dim > 1:
+		aux2 = quadManager.popOper()
+		aux = quadManager.popOper()
+		tempAddress = getNextAddress(keywordMapper.get("int"), "temp", 1, 1)
+		quadManager.addQuad(operToCode.get("+"), aux, aux2, tempAddress)
+		quadManager.pushOper(tempAddress)
+
+def p_np_mat_vec_access_3(p):
+	'''np_mat_vec_access_3	:'''
+	id, dim = quadManager.popDim()
+	dimX, dimY = stackDimSizes.top()
+	if dimY == -1:
+		# TODO: Update error message to use a variable id instead of address. Note that we cannot use currentVarId. 
+		print("Error: '%s' at line %d is not a variable of the proper dimension." % (id, p.lexer.lineno))
+		sys.exit(0)
+	
+	# Adds 1 to the dimension that was at the top of the stack of dimensions.
+	quadManager.pushDim(id, dim + 1)
+
+def p_np_mat_vec_access_4(p):
+	'''np_mat_vec_access_4	:'''
+	aux = quadManager.popOper()
+	idBase, dim = quadManager.topDim()
+	dimX, dimY = stackDimSizes.top()
+	if dim == 1 and dimY != -1:
+		# TODO: Update error message to use a variable id instead of address. Note that we cannot use currentVarId. 
+		print("Error: '%s' at line %d is not a variable of the proper dimension." % (idBase, p.lexer.lineno))
+		sys.exit(0)
+
+	tempAddressForBase = getNextAddress(keywordMapper.get("int"), "temp", 1, 1)
+	# Stores the base id of the vector/matrix in a temporal address, so that we can add it
+	# to the shifting value accummulated so far. This is necessary since the "+" operation adds
+	# the values stored in the addresses, not the addresses themselves.
+	quadManager.addQuad(operToCode.get("="), -1, idBase, tempAddressForBase)
+	indexingAddress = getNextAddress(keywordMapper.get("int"), "temp", 1, 1)
+	quadManager.addQuad(operToCode.get("+"), aux, tempAddressForBase, indexingAddress)
+	# Specifies that 'indexingAddress' does not contain a value, but instead is a reference to another address.
+	quadManager.addQuad(operToCode.get("REF"), -1, -1, indexingAddress)
+	quadManager.pushOper(indexingAddress)
+	quadManager.popOp() # Removes false bottom operator.
+	quadManager.popDim()
+	stackDimSizes.pop()
 
 #METHOD
 def p_method(p):
@@ -716,7 +827,7 @@ def p_np_method_6(p):
 				print("Error: Parameter '%s' was already defined for '%s' method" % (currentParamIds[index], currentMethod))
 				sys.exit(0)
 			else:
-				address = getNextAddress(currentParamTypes[index], "local")
+				address = getNextAddress(currentParamTypes[index], "local", currentParamDimsX[index], currentParamDimsY[index])
 				newVarTableRow = VarTableRow(currentParamTypes[index], None, None, address, currentParamDimsX[index], currentParamDimsY[index])
 				varTable.add(currentParamIds[index], newVarTableRow)
 				quadManager.addQuad(operToCode.get("LOAD_PARAM"), -1, -1, address)
@@ -837,7 +948,7 @@ def p_np_func_call_3(p):
 		quadManager.addQuad(operToCode.get("GOSUB"), -1, -1, funcStartPos)
 		# TODO: Add error message for checking if you called a void function in an expression.
 		if funcType != keywordMapper.get("void"):
-			returnAddress = getNextAddress(funcType, "temp")
+			returnAddress = getNextAddress(funcType, "temp", 1, 1)
 			quadManager.addQuad(operToCode.get("="), CONST_RETURN, -1, returnAddress)
 			quadManager.pushOper(returnAddress)
 			quadManager.pushType(funcType)
@@ -1010,7 +1121,7 @@ def p_np_while_loop_3(p):
 
 #IN_OUT
 def p_in_out(p):
-	'''in_out	: PRINT '(' print_exp ')' ';'
+	'''in_out	: PRINT '(' print_exp np_in_out_3 ')' ';'
 						| SCAN '(' ID np_in_out_2 id_access ')' ';' '''
 
 def p_print_exp(p):
@@ -1035,6 +1146,11 @@ def p_np_in_out_2(p):
 	idAddress = getVarAddress(currentVarId)
 	operator = operToCode.get('scan')
 	quadManager.addQuad(operator, -1, -1, idAddress)
+
+def p_np_in_out_3(p):
+	'''np_in_out_3	:'''
+	operator = operToCode.get('print')
+	quadManager.addQuad(operator, -1, -1, -1)
 
 #RETURN
 def p_return(p):
@@ -1257,7 +1373,7 @@ def p_np_factor_6(p):
 	if ctValue in ctDic:
 		ctAddress = ctDic[ctValue]
 	else:
-		ctAddress = getNextAddress(ctTypeCode, 'const')
+		ctAddress = getNextAddress(ctTypeCode, 'const', 1, 1)
 		ctDic[ctValue] = ctAddress
 		# When reading quads in VM, if the operator is '=' and oper3 has const scope, then
 		# oper2 is a constant value (not an address) and must be treated as such.
