@@ -1,9 +1,10 @@
 Main {
   public_func void main() {
     var i : int;
-    vec myVec1, myVec2, myVec3 : int[5];
-    myVec1[2] = 1;
-    myVec2[2] = 1;
-    i = myVec1[2] + myVec2[2];
+    vec myVec1 : int[3];
+    vec myVec2 : int[5];
+    vec myVec3 : int[7];
+
+    myVec1[1] = myVec2[2] + myVec3[4];
   }
 }

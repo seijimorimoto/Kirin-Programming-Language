@@ -1,9 +1,8 @@
 Main {
   public_func void main() {
     var i : int;
-    mat myMat, myMat2, myMat3 : int[5, 4];
-    myMat[2] = 10;
-    //myMat2[2] = 1;
-    //i = myVec1[2] + myVec2[2];
+    mat myMat : int[3, 2];
+    mat myMat2 : int[2, 3];
+    myMat[0, 1] = myMat2[1, 1];    
   }
 }

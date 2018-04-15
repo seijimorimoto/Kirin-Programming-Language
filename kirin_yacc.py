@@ -269,6 +269,8 @@ def generateQuadForBinaryOperator(operatorList):
 		operType1 = quadManager.popType()
 		oper2 = quadManager.popOper()
 		oper1 = quadManager.popOper()
+		stackDimSizes.pop()
+		stackDimSizes.pop()
 		operator = quadManager.popOp()
 		resType = semanticCube.checkType(operator, operType1, operType2)
 		if invKeywordMapper.get(resType) == "error":
@@ -278,6 +280,7 @@ def generateQuadForBinaryOperator(operatorList):
 		quadManager.addQuad(operator, oper1, oper2, resAddress)
 		quadManager.pushOper(resAddress)
 		quadManager.pushType(resType)
+		stackDimSizes.push((-1, -1))
 
 def generateQuadForUnaryOperator(operatorList):
 	operatorMatch = False
@@ -289,6 +292,7 @@ def generateQuadForUnaryOperator(operatorList):
 	if operatorMatch:
 		operType = quadManager.popType()
 		oper = quadManager.popOper()
+		stackDimSizes.pop()
 		operator = quadManager.popOp()
 		resType = semanticCube.checkType(operator, -1, operType)
 		if invKeywordMapper.get(resType) == "error":
@@ -298,6 +302,7 @@ def generateQuadForUnaryOperator(operatorList):
 		quadManager.addQuad(operator, -1, oper, resAddress)
 		quadManager.pushOper(resAddress)
 		quadManager.pushType(resType)
+		stackDimSizes.push((-1, -1))
 
 #PROGRAM
 def p_program(p):
@@ -495,6 +500,7 @@ def p_np_vars_5(p):
 	currentOp = quadManager.popOp()
 	expressionValue = quadManager.popOper()
 	expressionType = quadManager.popType()
+	stackDimSizes.pop()
 	answerType = semanticCube.checkType(currentOp, currentType, expressionType)
 	if invKeywordMapper.get(answerType) == "error":
 		print("Error: Type mismatch in line %d" % (p.lexer.lineno))
@@ -610,6 +616,7 @@ def p_np_assignment_1(p):
 	checkIfVariableWasDefined(currentVarId)
 	quadManager.pushOper(getVarAddress(currentVarId))
 	quadManager.pushType(getVarType(currentVarId))
+	stackDimSizes.push(getVarDims(currentVarId))
 
 def p_np_assignment_2(p):
 	'''np_assignment_2	:'''
@@ -620,8 +627,10 @@ def p_np_assignment_3(p):
 	currentOp = quadManager.popOp()
 	expressionValue = quadManager.popOper()
 	expressionType = quadManager.popType()
+	stackDimSizes.pop()
 	assignedVar = quadManager.popOper()
 	assignedVarType = quadManager.popType()
+	stackDimSizes.pop()
 	answerType = semanticCube.checkType(currentOp, assignedVarType, expressionType)
 	if invKeywordMapper.get(answerType) == "error":
 		print("Error: Type mismatch in line %d." % (p.lexer.lineno))
@@ -685,9 +694,9 @@ def p_mat_access(p):
 #NEURAL POINTS FOR MAT_VEC_ACCESS
 def p_np_mat_vec_access_1(p):
 	'''np_mat_vec_access_1	:'''
+	# At this point, the top of the stackDimSizes contains the dims of the current vector/matrix being accessed.
 	id = quadManager.popOper()
-	dimX, dimY = getVarDims(currentVarId)
-	stackDimSizes.push((dimX, dimY))
+	dimX, dimY = stackDimSizes.top()
 
 	if dimX == -1:
 		print("Error: '%s' at line %d is not a variable of the proper dimension." % (currentVarId, p.lexer.lineno))
@@ -699,6 +708,7 @@ def p_np_mat_vec_access_1(p):
 def p_np_mat_vec_access_2(p):
 	'''np_mat_vec_access_2	:'''
 	id, dim = quadManager.topDim()
+	stackDimSizes.pop() # Eliminate the top element in the stack, which is the dims of the last expression.
 	dims = stackDimSizes.top()
 
 	quadManager.addQuad(operToCode.get("VER"), quadManager.topOper(), -1, dims[dim - 1])
@@ -713,8 +723,10 @@ def p_np_mat_vec_access_2(p):
 			# Assign dimX to an address in the scope of constants.
 			constDimAddress = getNextAddress(keywordMapper.get("int"), "const", 1, 1)
 			quadManager.addQuad(operToCode.get("="), -1, dimX, constDimAddress)
+			ctDic[dimX] = constDimAddress
 		else:
 			constDimAddress = ctDic.get(dimX)
+			quadManager.addQuad(operToCode.get("="), -1, dimX, constDimAddress)
 		
 		quadManager.addQuad(operToCode.get("*"), aux, constDimAddress, tempAddress)
 		quadManager.pushOper(tempAddress)
@@ -728,6 +740,7 @@ def p_np_mat_vec_access_2(p):
 
 def p_np_mat_vec_access_3(p):
 	'''np_mat_vec_access_3	:'''
+	# At this point, the top of the stackDimSizes contains the dims of the current vector/matrix being accessed.
 	id, dim = quadManager.popDim()
 	dimX, dimY = stackDimSizes.top()
 	if dimY == -1:
@@ -740,6 +753,7 @@ def p_np_mat_vec_access_3(p):
 
 def p_np_mat_vec_access_4(p):
 	'''np_mat_vec_access_4	:'''
+	# At this point, the top of the stackDimSizes contains the dims of the current vector/matrix being accessed.
 	aux = quadManager.popOper()
 	idBase, dim = quadManager.topDim()
 	dimX, dimY = stackDimSizes.top()
@@ -761,6 +775,7 @@ def p_np_mat_vec_access_4(p):
 	quadManager.popOp() # Removes false bottom operator.
 	quadManager.popDim()
 	stackDimSizes.pop()
+	stackDimSizes.push((-1, -1))
 
 #METHOD
 def p_method(p):
@@ -928,6 +943,7 @@ def p_np_func_call_2(p):
 	global stackParamsToBeSend, stackParamsTypesToBeSend
 	param = quadManager.popOper()
 	paramType = quadManager.popType()
+	stackDimSizes.pop()
 	currentParamsToBeSend = stackParamsToBeSend.top()
 	currentParamsToBeSend.append(param)
 	currentParamsTypesToBeSend = stackParamsTypesToBeSend.top()
@@ -949,9 +965,10 @@ def p_np_func_call_3(p):
 		# TODO: Add error message for checking if you called a void function in an expression.
 		if funcType != keywordMapper.get("void"):
 			returnAddress = getNextAddress(funcType, "temp", 1, 1)
-			quadManager.addQuad(operToCode.get("="), CONST_RETURN, -1, returnAddress)
+			quadManager.addQuad(operToCode.get("="), -1, CONST_RETURN, returnAddress)
 			quadManager.pushOper(returnAddress)
 			quadManager.pushType(funcType)
+			stackDimSizes.push((-1, -1))
 	else:
 		print("Error: Function '%s' with the arguments used in line %d was not defined." % (funcName, p.lexer.lineno))
 		sys.exit(0)
@@ -1006,6 +1023,7 @@ def p_np_condition_1(p):
 	global decisionLevel, decisionsPerLevel
 	expressionType = quadManager.popType()
 	expressionValue = quadManager.popOper()
+	stackDimSizes.pop()
 	if invKeywordMapper.get(expressionType) != "bool":
 		print("Error: Expected boolean expression after 'if'/'elseif' in line %d" % (p.lexer.lineno))
 		sys.exit(0)
@@ -1057,6 +1075,7 @@ def p_np_for_loop_2(p):
 	'''np_for_loop_2	:'''
 	expressionType = quadManager.popType()
 	expressionValue = quadManager.popOper()
+	stackDimSizes.pop()
 	if invKeywordMapper.get(expressionType) != 'bool':
 		print("Error: Expected boolean expression in second block of 'for' statement in line %d" % (p.lexer.lineno))
 		sys.exit(0)
@@ -1074,6 +1093,7 @@ def p_np_for_loop_3(p):
 	conditionBegin = quadManager.popJump()
 	expressionAns = quadManager.popOper()
 	expressionType = quadManager.popType()
+	stackDimSizes.pop()
 	forVarId = p[-3] # p[-3] is ID of variable to be assigned to.
 	forVarIdAddress = getVarAddress(forVarId)
 	forVarIdTypePrimType = getVarType(p[-3])
@@ -1106,6 +1126,7 @@ def p_np_while_loop_2(p):
 	'''np_while_loop_2	:'''
 	expressionType = quadManager.popType()
 	expressionValue = quadManager.popOper()
+	stackDimSizes.pop()
 	if invKeywordMapper.get(expressionType) != "bool":
 		print("Error: Expected boolean expression after 'while' in line %d" % (p.lexer.lineno))
 		sys.exit(0)
@@ -1136,6 +1157,7 @@ def p_np_in_out_1(p):
 	'''np_in_out_1	:'''
 	expAddress = quadManager.popOper()
 	expType = quadManager.popType()
+	stackDimSizes.pop()
 	operator = operToCode.get('print')
 	quadManager.addQuad(operator, -1, -1, expAddress)
 
@@ -1145,7 +1167,8 @@ def p_np_in_out_2(p):
 	currentVarId = p[-1]
 	idAddress = getVarAddress(currentVarId)
 	operator = operToCode.get('scan')
-	quadManager.addQuad(operator, -1, -1, idAddress)
+	# TODO: Modify scan for vector/matrix expressions.
+	quadManager.addQuad(operator, 0, -1, idAddress)
 
 def p_np_in_out_3(p):
 	'''np_in_out_3	:'''
@@ -1165,6 +1188,7 @@ def p_np_return_1(p):
 	'''np_return_1	:'''
 	returnValue = quadManager.popOper()
 	returnType = quadManager.popType()
+	stackDimSizes.pop()
 	if returnType != currentMethodType:
 		print("Error: Return value in line %d is not of type '%s'." % (p.lexer.lineno, invKeywordMapper.get(currentMethodType)))
 		sys.exit(0)
@@ -1375,12 +1399,13 @@ def p_np_factor_6(p):
 	else:
 		ctAddress = getNextAddress(ctTypeCode, 'const', 1, 1)
 		ctDic[ctValue] = ctAddress
-		# When reading quads in VM, if the operator is '=' and oper3 has const scope, then
-		# oper2 is a constant value (not an address) and must be treated as such.
-		operator = operToCode.get('=')
-		quadManager.addQuad(operator, -1, ctValue, ctAddress)
+	# When reading quads in VM, if the operator is '=' and oper3 has const scope, then
+	# oper2 is a constant value (not an address) and must be treated as such.
+	operator = operToCode.get('=')
+	quadManager.addQuad(operator, -1, ctValue, ctAddress)
 	quadManager.pushOper(ctAddress)
 	quadManager.pushType(ctTypeCode)
+	stackDimSizes.push((-1, -1))
 
 def p_np_factor_7(p):
 	'''np_factor_7	:'''
@@ -1393,6 +1418,7 @@ def p_np_factor_8(p):
 	quadManager.pushOper(getVarAddress(currentVarId))
 	primType = getVarType(currentVarId)
 	quadManager.pushType(primType)
+	stackDimSizes.push(getVarDims(currentVarId))
 
 def p_np_factor_9(p):
 	'''np_factor_9	:'''
