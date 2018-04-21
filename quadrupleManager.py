@@ -33,6 +33,8 @@ operToCode = {
   'LOAD_PARAM': 504,
   'RETURN': 505,
   'ENDPROC': 506,
+  'VER': 601,
+  'REF': 602,
   '(': 1001
 }
 
@@ -63,9 +65,10 @@ codeToOper = {
   504: 'LOAD_PARAM',
   505: 'RETURN',
   506: 'ENDPROC',
+  601: 'VER',
+  602: 'REF',
   1001: '('
 }
-
 
 class QuadrupleManager(object):
   
@@ -74,11 +77,13 @@ class QuadrupleManager(object):
     self.stackOper = Stack()
     self.stackTypes = Stack()
     self.stackJumps = Stack()
+    self.stackDims = Stack()
     # Insert a false element in each stack, so that it always contains a top element.
     self.stackOp.push(999)
     self.stackOper.push(999)
     self.stackTypes.push(999)
     self.stackJumps.push(999)
+    self.stackDims.push(999)
     self.queueQuad = []
     self.quadCont = 0
 
@@ -126,6 +131,15 @@ class QuadrupleManager(object):
   
   def topJump(self):
     return self.stackJumps.top()
+  
+  def pushDim(self, id, dim):
+    self.stackDims.push((id, dim))
+  
+  def popDim(self):
+    return self.stackDims.pop()
+
+  def topDim(self):
+    return self.stackDims.top()
   
   def fill(self, quadPos, value):
     self.queueQuad[quadPos].oper3 = value

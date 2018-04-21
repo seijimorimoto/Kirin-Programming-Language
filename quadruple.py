@@ -1,5 +1,5 @@
 # Kirin Programming Language
-# Quadruplue class
+# Quadruple class
 # Jose Juan Zavala Iglesias		| A01281362
 # Angel Seiji Morimoto Burgos	| A01281380
 

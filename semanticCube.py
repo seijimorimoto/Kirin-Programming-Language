@@ -34,6 +34,7 @@ class SemanticCube(object):
     typeDouble = keywordMapper.get("double")
     typeChar = keywordMapper.get("char")
     typeBool = keywordMapper.get("bool")
+    typeObject = keywordMapper.get("object")
     typeError = keywordMapper.get("error")
     typeNone = -1
     self.cube = {
@@ -72,17 +73,17 @@ class SemanticCube(object):
       (typeInt, typeDouble, operToCode.get("xor")): typeError,
       (typeInt, typeDouble, operToCode.get("=")): typeInt,
 
-      (typeInt, typeChar, operToCode.get("+")): typeError, # Change to typeChar when vectors and matrices are implemented.
+      (typeInt, typeChar, operToCode.get("+")): typeError,
       (typeInt, typeChar, operToCode.get("-")): typeError,
-      (typeInt, typeChar, operToCode.get("*")): typeChar,
+      (typeInt, typeChar, operToCode.get("*")): typeError,
       (typeInt, typeChar, operToCode.get("/")): typeError,
       (typeInt, typeChar, operToCode.get("%")): typeError,
-      (typeInt, typeChar, operToCode.get("<")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeInt, typeChar, operToCode.get(">")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeInt, typeChar, operToCode.get("<=")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeInt, typeChar, operToCode.get(">=")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeInt, typeChar, operToCode.get("==")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeInt, typeChar, operToCode.get("<>")): typeError, # Change to typeBool when vectors and matrices are implemented.
+      (typeInt, typeChar, operToCode.get("<")): typeError,
+      (typeInt, typeChar, operToCode.get(">")): typeError,
+      (typeInt, typeChar, operToCode.get("<=")): typeError,
+      (typeInt, typeChar, operToCode.get(">=")): typeError,
+      (typeInt, typeChar, operToCode.get("==")): typeError,
+      (typeInt, typeChar, operToCode.get("<>")): typeError,
       (typeInt, typeChar, operToCode.get("and")): typeError,
       (typeInt, typeChar, operToCode.get("or")): typeError,
       (typeInt, typeChar, operToCode.get("xor")): typeError,
@@ -103,6 +104,22 @@ class SemanticCube(object):
       (typeInt, typeBool, operToCode.get("or")): typeError,
       (typeInt, typeBool, operToCode.get("xor")): typeError,
       (typeInt, typeBool, operToCode.get("=")): typeError,
+
+      (typeInt, typeObject, operToCode.get("+")): typeError,
+      (typeInt, typeObject, operToCode.get("-")): typeError,
+      (typeInt, typeObject, operToCode.get("*")): typeError,
+      (typeInt, typeObject, operToCode.get("/")): typeError,
+      (typeInt, typeObject, operToCode.get("%")): typeError,
+      (typeInt, typeObject, operToCode.get("<")): typeError,
+      (typeInt, typeObject, operToCode.get(">")): typeError,
+      (typeInt, typeObject, operToCode.get("<=")): typeError,
+      (typeInt, typeObject, operToCode.get(">=")): typeError,
+      (typeInt, typeObject, operToCode.get("==")): typeError,
+      (typeInt, typeObject, operToCode.get("<>")): typeError,
+      (typeInt, typeObject, operToCode.get("and")): typeError,
+      (typeInt, typeObject, operToCode.get("or")): typeError,
+      (typeInt, typeObject, operToCode.get("xor")): typeError,
+      (typeInt, typeObject, operToCode.get("=")): typeError,
 
       # 'double' with all other primitive data types.
       (typeDouble, typeDouble, operToCode.get("+")): typeDouble,
@@ -139,17 +156,17 @@ class SemanticCube(object):
       (typeDouble, typeInt, operToCode.get("xor")): typeError,
       (typeDouble, typeInt, operToCode.get("=")): typeDouble,
 
-      (typeDouble, typeChar, operToCode.get("+")): typeError, # Change to typeChar when vectors and matrices are implemented.
+      (typeDouble, typeChar, operToCode.get("+")): typeError,
       (typeDouble, typeChar, operToCode.get("-")): typeError,
       (typeDouble, typeChar, operToCode.get("*")): typeError,
       (typeDouble, typeChar, operToCode.get("/")): typeError,
       (typeDouble, typeChar, operToCode.get("%")): typeError,
-      (typeDouble, typeChar, operToCode.get("<")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeDouble, typeChar, operToCode.get(">")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeDouble, typeChar, operToCode.get("<=")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeDouble, typeChar, operToCode.get(">=")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeDouble, typeChar, operToCode.get("==")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeDouble, typeChar, operToCode.get("<>")): typeError, # Change to typeBool when vectors and matrices are implemented.
+      (typeDouble, typeChar, operToCode.get("<")): typeError,
+      (typeDouble, typeChar, operToCode.get(">")): typeError,
+      (typeDouble, typeChar, operToCode.get("<=")): typeError,
+      (typeDouble, typeChar, operToCode.get(">=")): typeError,
+      (typeDouble, typeChar, operToCode.get("==")): typeError,
+      (typeDouble, typeChar, operToCode.get("<>")): typeError,
       (typeDouble, typeChar, operToCode.get("and")): typeError,
       (typeDouble, typeChar, operToCode.get("or")): typeError,
       (typeDouble, typeChar, operToCode.get("xor")): typeError,
@@ -171,8 +188,24 @@ class SemanticCube(object):
       (typeDouble, typeBool, operToCode.get("xor")): typeError,
       (typeDouble, typeBool, operToCode.get("=")): typeError,
 
+      (typeDouble, typeObject, operToCode.get("+")): typeError,
+      (typeDouble, typeObject, operToCode.get("-")): typeError,
+      (typeDouble, typeObject, operToCode.get("*")): typeError,
+      (typeDouble, typeObject, operToCode.get("/")): typeError,
+      (typeDouble, typeObject, operToCode.get("%")): typeError,
+      (typeDouble, typeObject, operToCode.get("<")): typeError,
+      (typeDouble, typeObject, operToCode.get(">")): typeError,
+      (typeDouble, typeObject, operToCode.get("<=")): typeError,
+      (typeDouble, typeObject, operToCode.get(">=")): typeError,
+      (typeDouble, typeObject, operToCode.get("==")): typeError,
+      (typeDouble, typeObject, operToCode.get("<>")): typeError,
+      (typeDouble, typeObject, operToCode.get("and")): typeError,
+      (typeDouble, typeObject, operToCode.get("or")): typeError,
+      (typeDouble, typeObject, operToCode.get("xor")): typeError,
+      (typeDouble, typeObject, operToCode.get("=")): typeError,
+
       # 'char' with all other primitive types
-      (typeChar, typeChar, operToCode.get("+")): typeError, # Change to typeChar when vectors and matrices are implemented.
+      (typeChar, typeChar, operToCode.get("+")): typeChar,
       (typeChar, typeChar, operToCode.get("-")): typeError,
       (typeChar, typeChar, operToCode.get("*")): typeError,
       (typeChar, typeChar, operToCode.get("/")): typeError,
@@ -190,39 +223,39 @@ class SemanticCube(object):
       (typeNone, typeChar, operToCode.get("UMINUS")): typeError,
       (typeNone, typeChar, operToCode.get("~")): typeError,
 
-      (typeChar, typeInt, operToCode.get("+")): typeError, # Change to typeChar when vectors and matrices are implemented.
+      (typeChar, typeInt, operToCode.get("+")): typeError,
       (typeChar, typeInt, operToCode.get("-")): typeError,
-      (typeChar, typeInt, operToCode.get("*")): typeChar,
+      (typeChar, typeInt, operToCode.get("*")): typeError,
       (typeChar, typeInt, operToCode.get("/")): typeError,
       (typeChar, typeInt, operToCode.get("%")): typeError,
-      (typeChar, typeInt, operToCode.get("<")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeChar, typeInt, operToCode.get(">")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeChar, typeInt, operToCode.get("<=")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeChar, typeInt, operToCode.get(">=")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeChar, typeInt, operToCode.get("==")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeChar, typeInt, operToCode.get("<>")): typeError, # Change to typeBool when vectors and matrices are implemented.
+      (typeChar, typeInt, operToCode.get("<")): typeError,
+      (typeChar, typeInt, operToCode.get(">")): typeError,
+      (typeChar, typeInt, operToCode.get("<=")): typeError,
+      (typeChar, typeInt, operToCode.get(">=")): typeError,
+      (typeChar, typeInt, operToCode.get("==")): typeError,
+      (typeChar, typeInt, operToCode.get("<>")): typeError,
       (typeChar, typeInt, operToCode.get("and")): typeError,
       (typeChar, typeInt, operToCode.get("or")): typeError,
       (typeChar, typeInt, operToCode.get("xor")): typeError,
-      (typeChar, typeInt, operToCode.get("=")): typeError, # Change to typeChar when vectors and matrices are implemented.
+      (typeChar, typeInt, operToCode.get("=")): typeError,
 
-      (typeChar, typeDouble, operToCode.get("+")): typeError, # Change to typeChar when vectors and matrices are implemented.
+      (typeChar, typeDouble, operToCode.get("+")): typeError,
       (typeChar, typeDouble, operToCode.get("-")): typeError,
       (typeChar, typeDouble, operToCode.get("*")): typeError,
       (typeChar, typeDouble, operToCode.get("/")): typeError,
       (typeChar, typeDouble, operToCode.get("%")): typeError,
-      (typeChar, typeDouble, operToCode.get("<")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeChar, typeDouble, operToCode.get(">")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeChar, typeDouble, operToCode.get("<=")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeChar, typeDouble, operToCode.get(">=")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeChar, typeDouble, operToCode.get("==")): typeError, # Change to typeBool when vectors and matrices are implemented.
-      (typeChar, typeDouble, operToCode.get("<>")): typeError, # Change to typeBool when vectors and matrices are implemented.
+      (typeChar, typeDouble, operToCode.get("<")): typeError,
+      (typeChar, typeDouble, operToCode.get(">")): typeError,
+      (typeChar, typeDouble, operToCode.get("<=")): typeError,
+      (typeChar, typeDouble, operToCode.get(">=")): typeError,
+      (typeChar, typeDouble, operToCode.get("==")): typeError,
+      (typeChar, typeDouble, operToCode.get("<>")): typeError,
       (typeChar, typeDouble, operToCode.get("and")): typeError,
       (typeChar, typeDouble, operToCode.get("or")): typeError,
       (typeChar, typeDouble, operToCode.get("xor")): typeError,
-      (typeChar, typeDouble, operToCode.get("=")): typeError, # Change to typeChar when vectors and matrices are implemented.
+      (typeChar, typeDouble, operToCode.get("=")): typeError,
 
-      (typeChar, typeBool, operToCode.get("+")): typeError, # Change to typeChar when vectors and matrices are implemented.
+      (typeChar, typeBool, operToCode.get("+")): typeError,
       (typeChar, typeBool, operToCode.get("-")): typeError,
       (typeChar, typeBool, operToCode.get("*")): typeError,
       (typeChar, typeBool, operToCode.get("/")): typeError,
@@ -236,7 +269,23 @@ class SemanticCube(object):
       (typeChar, typeBool, operToCode.get("and")): typeError,
       (typeChar, typeBool, operToCode.get("or")): typeError,
       (typeChar, typeBool, operToCode.get("xor")): typeError,
-      (typeChar, typeBool, operToCode.get("=")): typeError, # Change to typeChar when vectors and matrices are implemented.
+      (typeChar, typeBool, operToCode.get("=")): typeError,
+
+      (typeChar, typeObject, operToCode.get("+")): typeError,
+      (typeChar, typeObject, operToCode.get("-")): typeError,
+      (typeChar, typeObject, operToCode.get("*")): typeError,
+      (typeChar, typeObject, operToCode.get("/")): typeError,
+      (typeChar, typeObject, operToCode.get("%")): typeError,
+      (typeChar, typeObject, operToCode.get("<")): typeError,
+      (typeChar, typeObject, operToCode.get(">")): typeError,
+      (typeChar, typeObject, operToCode.get("<=")): typeError,
+      (typeChar, typeObject, operToCode.get(">=")): typeError,
+      (typeChar, typeObject, operToCode.get("==")): typeError,
+      (typeChar, typeObject, operToCode.get("<>")): typeError,
+      (typeChar, typeObject, operToCode.get("and")): typeError,
+      (typeChar, typeObject, operToCode.get("or")): typeError,
+      (typeChar, typeObject, operToCode.get("xor")): typeError,
+      (typeChar, typeObject, operToCode.get("=")): typeError,
 
       # 'bool' with all other data types
       (typeBool, typeBool, operToCode.get("+")): typeBool,
@@ -289,7 +338,7 @@ class SemanticCube(object):
       (typeBool, typeDouble, operToCode.get("xor")): typeError,
       (typeBool, typeDouble, operToCode.get("=")): typeError,
 
-      (typeBool, typeChar, operToCode.get("+")): typeError, # Change to typeChar when vectors and matrices are implemented.
+      (typeBool, typeChar, operToCode.get("+")): typeError,
       (typeBool, typeChar, operToCode.get("-")): typeError,
       (typeBool, typeChar, operToCode.get("*")): typeError,
       (typeBool, typeChar, operToCode.get("/")): typeError,
@@ -304,6 +353,105 @@ class SemanticCube(object):
       (typeBool, typeChar, operToCode.get("or")): typeError,
       (typeBool, typeChar, operToCode.get("xor")): typeError,
       (typeBool, typeChar, operToCode.get("=")): typeError,
+
+      (typeBool, typeObject, operToCode.get("+")): typeError,
+      (typeBool, typeObject, operToCode.get("-")): typeError,
+      (typeBool, typeObject, operToCode.get("*")): typeError,
+      (typeBool, typeObject, operToCode.get("/")): typeError,
+      (typeBool, typeObject, operToCode.get("%")): typeError,
+      (typeBool, typeObject, operToCode.get("<")): typeError,
+      (typeBool, typeObject, operToCode.get(">")): typeError,
+      (typeBool, typeObject, operToCode.get("<=")): typeError,
+      (typeBool, typeObject, operToCode.get(">=")): typeError,
+      (typeBool, typeObject, operToCode.get("==")): typeError,
+      (typeBool, typeObject, operToCode.get("<>")): typeError,
+      (typeBool, typeObject, operToCode.get("and")): typeError,
+      (typeBool, typeObject, operToCode.get("or")): typeError,
+      (typeBool, typeObject, operToCode.get("xor")): typeError,
+      (typeBool, typeObject, operToCode.get("=")): typeError,
+
+      # 'object' with all other data types
+      (typeObject, typeObject, operToCode.get("+")): typeError,
+      (typeObject, typeObject, operToCode.get("-")): typeError,
+      (typeObject, typeObject, operToCode.get("*")): typeError,
+      (typeObject, typeObject, operToCode.get("/")): typeError,
+      (typeObject, typeObject, operToCode.get("%")): typeError,
+      (typeObject, typeObject, operToCode.get("<")): typeError,
+      (typeObject, typeObject, operToCode.get(">")): typeError,
+      (typeObject, typeObject, operToCode.get("<=")): typeError,
+      (typeObject, typeObject, operToCode.get(">=")): typeError,
+      (typeObject, typeObject, operToCode.get("==")): typeBool,
+      (typeObject, typeObject, operToCode.get("<>")): typeBool,
+      (typeObject, typeObject, operToCode.get("and")): typeError,
+      (typeObject, typeObject, operToCode.get("or")): typeError,
+      (typeObject, typeObject, operToCode.get("xor")): typeError,
+      (typeObject, typeObject, operToCode.get("=")): typeObject,
+      (typeNone, typeObject, operToCode.get("UMINUS")): typeError,
+      (typeNone, typeObject, operToCode.get("~")): typeError,
+
+      (typeObject, typeInt, operToCode.get("+")): typeError,
+      (typeObject, typeInt, operToCode.get("-")): typeError,
+      (typeObject, typeInt, operToCode.get("*")): typeError,
+      (typeObject, typeInt, operToCode.get("/")): typeError,
+      (typeObject, typeInt, operToCode.get("%")): typeError,
+      (typeObject, typeInt, operToCode.get("<")): typeError,
+      (typeObject, typeInt, operToCode.get(">")): typeError,
+      (typeObject, typeInt, operToCode.get("<=")): typeError,
+      (typeObject, typeInt, operToCode.get(">=")): typeError,
+      (typeObject, typeInt, operToCode.get("==")): typeError,
+      (typeObject, typeInt, operToCode.get("<>")): typeError,
+      (typeObject, typeInt, operToCode.get("and")): typeError,
+      (typeObject, typeInt, operToCode.get("or")): typeError,
+      (typeObject, typeInt, operToCode.get("xor")): typeError,
+      (typeObject, typeInt, operToCode.get("=")): typeError,
+
+      (typeObject, typeDouble, operToCode.get("+")): typeError,
+      (typeObject, typeDouble, operToCode.get("-")): typeError,
+      (typeObject, typeDouble, operToCode.get("*")): typeError,
+      (typeObject, typeDouble, operToCode.get("/")): typeError,
+      (typeObject, typeDouble, operToCode.get("%")): typeError,
+      (typeObject, typeDouble, operToCode.get("<")): typeError,
+      (typeObject, typeDouble, operToCode.get(">")): typeError,
+      (typeObject, typeDouble, operToCode.get("<=")): typeError,
+      (typeObject, typeDouble, operToCode.get(">=")): typeError,
+      (typeObject, typeDouble, operToCode.get("==")): typeError,
+      (typeObject, typeDouble, operToCode.get("<>")): typeError,
+      (typeObject, typeDouble, operToCode.get("and")): typeError,
+      (typeObject, typeDouble, operToCode.get("or")): typeError,
+      (typeObject, typeDouble, operToCode.get("xor")): typeError,
+      (typeObject, typeDouble, operToCode.get("=")): typeError,
+
+      (typeObject, typeChar, operToCode.get("+")): typeError,
+      (typeObject, typeChar, operToCode.get("-")): typeError,
+      (typeObject, typeChar, operToCode.get("*")): typeError,
+      (typeObject, typeChar, operToCode.get("/")): typeError,
+      (typeObject, typeChar, operToCode.get("%")): typeError,
+      (typeObject, typeChar, operToCode.get("<")): typeError,
+      (typeObject, typeChar, operToCode.get(">")): typeError,
+      (typeObject, typeChar, operToCode.get("<=")): typeError,
+      (typeObject, typeChar, operToCode.get(">=")): typeError,
+      (typeObject, typeChar, operToCode.get("==")): typeError,
+      (typeObject, typeChar, operToCode.get("<>")): typeError,
+      (typeObject, typeChar, operToCode.get("and")): typeError,
+      (typeObject, typeChar, operToCode.get("or")): typeError,
+      (typeObject, typeChar, operToCode.get("xor")): typeError,
+      (typeObject, typeChar, operToCode.get("=")): typeError,
+
+      (typeObject, typeBool, operToCode.get("+")): typeError,
+      (typeObject, typeBool, operToCode.get("-")): typeError,
+      (typeObject, typeBool, operToCode.get("*")): typeError,
+      (typeObject, typeBool, operToCode.get("/")): typeError,
+      (typeObject, typeBool, operToCode.get("%")): typeError,
+      (typeObject, typeBool, operToCode.get("<")): typeError,
+      (typeObject, typeBool, operToCode.get(">")): typeError,
+      (typeObject, typeBool, operToCode.get("<=")): typeError,
+      (typeObject, typeBool, operToCode.get(">=")): typeError,
+      (typeObject, typeBool, operToCode.get("==")): typeError,
+      (typeObject, typeBool, operToCode.get("<>")): typeError,
+      (typeObject, typeBool, operToCode.get("and")): typeError,
+      (typeObject, typeBool, operToCode.get("or")): typeError,
+      (typeObject, typeBool, operToCode.get("xor")): typeError,
+      (typeObject, typeBool, operToCode.get("=")): typeError,
     }
   
   def checkType(self, op, operType1, operType2):
