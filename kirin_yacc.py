@@ -73,10 +73,12 @@ currentParamIds = []
 currentParamTypes = []
 currentParamDimsX = []
 currentParamDimsY = []
-currentParamDimX = -1
-currentParamDimY = -1
+currentDimX = -1
+currentDimY = -1
 stackParamsToBeSend = Stack()
 stackParamsTypesToBeSend = Stack()
+stackParamsDimsX = Stack()
+stackParamsDimsY = Stack()
 stackFunctionCalls = Stack()
 stackDimSizes = Stack()
 currentCtType = ""
@@ -189,7 +191,7 @@ def resetLocalAndTempMemoryAddresses():
 def validateAndAddVarsToScope(dimX, dimY):
 	for currentVarId in currentVarIds:
 		if currentMethod == "":
-			varTable = funcDirTable.getVarTable(currentClass, None) 
+			varTable = funcDirTable.getVarTable(currentClass, None, None, None) 
 			if varTable.has(currentVarId):
 				print("Error: Variable '%s' was already defined." % (currentVarId))
 				sys.exit(0)
@@ -198,7 +200,7 @@ def validateAndAddVarsToScope(dimX, dimY):
 				newVarTableRow = VarTableRow(currentType, isCurrentVarIndependent, isCurrentVarPrivate, address, dimX, dimY)
 				varTable.add(currentVarId, newVarTableRow)
 		else:
-			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
 			if varTable.has(currentVarId):
 				print("Error: Variable '%s' was already defined." % (currentVarId))
 				sys.exit(0)
@@ -209,52 +211,52 @@ def validateAndAddVarsToScope(dimX, dimY):
 
 def checkIfVariableWasDefined(id):
 	if refersToClass == True or currentMethod == "":
-		varTable = funcDirTable.getVarTable(currentClass, None)
+		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 		if varTable.has(id) == False:
 			print("Error: Variable '%s' was not declared." % (id))
 			sys.exit(0)
 	else:
-		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
 		if varTable.has(id) == False:
-			varTable = funcDirTable.getVarTable(currentClass, None)
+			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 			if varTable.has(id) == False:
 				print("Error: Variable '%s' was not declared." % (id))
 				sys.exit(0)
 
 def getVarAddress(id):
 	if refersToClass == True or currentMethod == '':
-		varTable = funcDirTable.getVarTable(currentClass, None)
+		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 		return varTable.get(id).address
 	else:
-		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
 		if varTable.has(id):
 			return varTable.get(id).address
 		else:
-			varTable = funcDirTable.getVarTable(currentClass, None)
+			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 			return varTable.get(id).address
 
 def getVarType(id):
 	if refersToClass == True or currentMethod == '':
-		varTable = funcDirTable.getVarTable(currentClass, None)
+		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 		return varTable.get(id).varType
 	else:
-		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
 		if varTable.has(id):
 			return varTable.get(id).varType
 		else:
-			varTable = funcDirTable.getVarTable(currentClass, None)
+			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 			return varTable.get(id).varType
 
 def getVarDims(id):
 	if refersToClass == True or currentMethod == '':
-		varTable = funcDirTable.getVarTable(currentClass, None)
+		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 		return (varTable.get(id).dimX, varTable.get(id).dimY)
 	else:
-		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
 		if varTable.has(id):
 			return (varTable.get(id).dimX, varTable.get(id).dimY)
 		else:
-			varTable = funcDirTable.getVarTable(currentClass, None)
+			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 			return (varTable.get(id).dimX, varTable.get(id).dimY)
 
 def generateQuadForBinaryOperator(operatorList):
@@ -330,13 +332,13 @@ def p_np_program_1(p):
 		sys.exit(0)
 	classDirTable[currentClass] = FuncDirTable()
 	funcDirRow = FuncDirRow("class", False, False, quadManager.quadCont)
-	classDirTable[currentClass].add(currentClass, None, funcDirRow)
+	classDirTable[currentClass].add(currentClass, None, None, None, funcDirRow)
 	# Assigns the function directory of the current class to the global variable funcDirTable.
 	funcDirTable = classDirTable[currentClass]
 
 def p_np_program_2(p):
 	'''np_program_2	:'''
-	if not classDirTable[currentClass].has("main", ()):
+	if not classDirTable[currentClass].has("main", (), (), ()):
 		print("Error: Main block must have a 'main' function with no parameters.")
 		sys.exit(0)
 
@@ -583,16 +585,16 @@ def p_id_var_acc(p):
 def p_np_id_access_1(p):
 	'''np_id_access_1	:'''
 	if refersToClass == True or currentMethod == "":
-		varTable = funcDirTable.getVarTable(currentClass, None)
+		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 		primType = varTable.get(currentVarId).varType
 		if primType != keywordMapper.get("object"):
 			print("Error: Cannot use the '.' operator with '%s', because it is not of object type" % (currentVarId))
 			sys.exit(0)
 	else:
-		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
 		primType = varTable.get(currentVarId).varType
 		if primType != keywordMapper.get("object"):
-			varTable = funcDirTable.getVarTable(currentClass, None)
+			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 			primType = varTable.get(currentVarId).varType
 			if primType != keywordMapper.get("object"):
 				print("Error: Cannot use the '.' operator with '%s', because it is not of object type" % (currentVarId))
@@ -837,14 +839,14 @@ def p_np_method_5(p):
 def p_np_method_6(p):
 	'''np_method_6	:'''
 	global funcDirTable, varTable
-	if funcDirTable.has(currentMethod, tuple(currentParamTypes)) == True:
+	if funcDirTable.has(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY)) == True:
 		print("Error: Method '%s' at line %d was already defined with the same parameters." % (currentMethod, p.lexer.lineno))
 		sys.exit(0)
 	else:
 		newFuncDirRow = FuncDirRow(currentMethodType, isCurrentMethodIndependent, isCurrentMethodPrivate, quadManager.quadCont)
-		funcDirTable.add(currentMethod, tuple(currentParamTypes), newFuncDirRow)
+		funcDirTable.add(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY), newFuncDirRow)
 		# Get the VarTable of the 'just created' function.
-		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
 		for index in range(len(currentParamIds)):
 			if varTable.has(currentParamIds[index]):
 				print("Error: Parameter '%s' was already defined for '%s' method" % (currentParamIds[index], currentMethod))
@@ -853,6 +855,7 @@ def p_np_method_6(p):
 				address = getNextAddress(currentParamTypes[index], "local", currentParamDimsX[index], currentParamDimsY[index])
 				newVarTableRow = VarTableRow(currentParamTypes[index], None, None, address, currentParamDimsX[index], currentParamDimsY[index])
 				varTable.add(currentParamIds[index], newVarTableRow)
+				# TODO: Check if operator has to be "LOAD_REF" or "LOAD_PARAM"
 				quadManager.addQuad(operToCode.get("LOAD_PARAM"), -1, -1, address)
 
 def p_np_method_7(p):
@@ -945,6 +948,8 @@ def p_np_func_call_1(p):
 	quadManager.addQuad(operToCode.get("ERA"), -1, -1, -1)
 	stackParamsToBeSend.push([])
 	stackParamsTypesToBeSend.push([])
+	stackParamsDimsX.push([])
+	stackParamsDimsY.push([])
 	quadManager.pushOp(operToCode.get("("))
 
 def p_np_func_call_2(p):
@@ -952,19 +957,26 @@ def p_np_func_call_2(p):
 	global stackParamsToBeSend, stackParamsTypesToBeSend
 	param = quadManager.popOper()
 	paramType = quadManager.popType()
-	stackDimSizes.pop()
+	dimX, dimY = stackDimSizes.pop()
 	currentParamsToBeSend = stackParamsToBeSend.top()
 	currentParamsToBeSend.append(param)
 	currentParamsTypesToBeSend = stackParamsTypesToBeSend.top()
 	currentParamsTypesToBeSend.append(paramType)
+	localParamDimsX = stackParamsDimsX.top()
+	localParamDimsX.append(dimX)
+	localParamDimsY = stackParamsDimsY.top()
+	localParamDimsY.append(dimY)
 
 def p_np_func_call_3(p):
 	'''np_func_call_3	:'''
 	funcName = stackFunctionCalls.pop()
 	currentParamsToBeSend = stackParamsToBeSend.top()
 	currentParamsTypesToBeSend = stackParamsTypesToBeSend.top()
-	if funcDirTable.has(funcName, tuple(currentParamsTypesToBeSend)):
-		funcDirRow = funcDirTable.getFuncDirRow(funcName, tuple(currentParamsTypesToBeSend))
+	localParamDimsX = stackParamsDimsX.top()
+	localParamDimsY = stackParamsDimsY.top()
+	print(localParamDimsX, localParamDimsY)
+	if funcDirTable.has(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY)):
+		funcDirRow = funcDirTable.getFuncDirRow(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY))
 		funcStartPos = funcDirRow.startPos
 		funcType = funcDirRow.blockType
 		for param in currentParamsToBeSend:
@@ -988,6 +1000,8 @@ def p_np_func_call_4(p):
 	quadManager.popOp()
 	stackParamsToBeSend.pop()
 	stackParamsTypesToBeSend.pop()
+	stackParamsDimsX.pop()
+	stackParamsDimsY.pop()
 
 #BLOCK
 def p_block(p):
