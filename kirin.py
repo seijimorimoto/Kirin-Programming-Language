@@ -584,6 +584,12 @@ def executeQuad(quad):
   if quad[0] == operToCode.get("REF"):
     stackDicReferences[currentStackLevel][quad[3]] = (currentStackLevel, extractValue(quad[3]))
 
+  
+  # OPER -> DEREF
+  if quad[0] == operToCode.get("DEREF"):
+    if quad[3] in stackDicReferences[currentStackLevel]:
+      del stackDicReferences[currentStackLevel][quad[3]]
+
 # Main
 if len(sys.argv) != 2:
   print("Error: Expected usage is %s name_of_file" %(sys.argv[0]))

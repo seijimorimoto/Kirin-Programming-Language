@@ -773,15 +773,17 @@ def p_np_mat_vec_access_4(p):
 	quadManager.addQuad(operToCode.get("="), -1, idBase, constantAddressForBase)
 
 	indexingAddress = getNextAddress(keywordMapper.get("int"), "temp", 1, 1)
+	# Specifies that 'indexingAddress' in this moment is not a reference to another address. This had to be done
+	# in order for the "REF" operator to work when accessing elements in a vector or matrix within a loop.
+	quadManager.addQuad(operToCode.get("DEREF"), -1 , -1, indexingAddress)
 	quadManager.addQuad(operToCode.get("+"), aux, constantAddressForBase, indexingAddress)
 	# Specifies that 'indexingAddress' does not contain a value, but instead is a reference to another address.
-	# TODO: Fix how REF works (specially in loops).
 	quadManager.addQuad(operToCode.get("REF"), -1, -1, indexingAddress)
 	quadManager.pushOper(indexingAddress)
 	quadManager.popOp() # Removes false bottom operator.
 	quadManager.popDim()
 	stackDimSizes.pop()
-	stackDimSizes.push((-1, -1))
+	stackDimSizes.push((-1, -1)) # Size dimensions of the new added operand (indexingAddress) to the stack of operands.
 
 #METHOD
 def p_method(p):

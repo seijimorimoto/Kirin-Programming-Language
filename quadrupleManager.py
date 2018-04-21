@@ -35,6 +35,7 @@ operToCode = {
   'ENDPROC': 506,
   'VER': 601,
   'REF': 602,
+  'DEREF': 603,
   '(': 1001
 }
 
@@ -67,6 +68,7 @@ codeToOper = {
   506: 'ENDPROC',
   601: 'VER',
   602: 'REF',
+  603: 'DEREF',
   1001: '('
 }
 
