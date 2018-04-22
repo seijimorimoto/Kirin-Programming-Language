@@ -57,6 +57,7 @@ prevStackLevel.push(currentStackLevel)
 editingContext = 0
 stackDicReferences = [{}] # Holds, for each activationRecord in the local memory stack, which addresses are references and the values they reference.
 queueParams = Queue() # A queue for holding the values of the params
+queueRefs = Queue() # A queue for holding the references sent/received as params
 instructionPointer = 0
 prevInstructionPointer = Stack()
 inputBuffer = ""
@@ -168,31 +169,31 @@ def executeQuad(quad):
   if quad[0] == operToCode.get("="):
     if getType(quad[3]) == "int":
       if getType(quad[2]) == "int":
-        if quad[3] >= 30000:
+        if quad[3] >= CONST_CT_BEGIN_INT:
           setValue(quad[3], quad[2])
         else:
           setValue(quad[3], extractValue(quad[2]))
       elif getType(quad[2]) == "double":
-        if quad[3] >= 30000:
+        if quad[3] >= CONST_CT_BEGIN_INT:
           setValue(quad[3], round(quad[2]))
         else:
           setValue(quad[3], round(extractValue(quad[2])))
       # End of quad[3] being an int.
     elif getType(quad[3]) == "double":
-      if quad[3] >= 30000:
+      if quad[3] >= CONST_CT_BEGIN_INT:
         setValue(quad[3], quad[2])
       else:
         setValue(quad[3], extractValue(quad[2]))
       # End of quad[3] being a double.
     elif getType(quad[3]) == "char":
-      if quad[3] >= 30000:
+      if quad[3] >= CONST_CT_BEGIN_INT:
         setValue(quad[3], quad[2])
       else:
         setValue(quad[3], extractValue(quad[2]))
       # End of quad[3] being a char.
       # TODO: In compilation remove the single quotes.
     elif getType(quad[3]) == "bool":
-      if quad[3] >= 30000:
+      if quad[3] >= CONST_CT_BEGIN_INT:
         setValue(quad[3], quad[2])
       else:
         setValue(quad[3], extractValue(quad[2]))
@@ -540,17 +541,26 @@ def executeQuad(quad):
     value = extractValue(quad[3])
     queueParams.push(value)
 
-
   # OPER -> PARAM_REF
   if quad[0] == operToCode.get("PARAM_REF"):
-    pass
+    if quad[3] in stackDicReferences[currentStackLevel]:
+      value = stackDicReferences[currentStackLevel][quad[3]]
+      queueRefs.push(value)
+    else:
+      value = (currentStackLevel, quad[3])
+      queueRefs.push(value)
 
   # OPER -> LOAD_PARAM
   if quad[0] == operToCode.get("LOAD_PARAM"):
     value = queueParams.front()
     queueParams.pop()
     setValue(quad[3], value)
-
+  
+  # OPER -> LOAD_REF
+  if quad[0] == operToCode.get("LOAD_REF"):
+    value = queueRefs.front()
+    queueRefs.pop()
+    stackDicReferences[currentStackLevel][quad[3]] = value
 
   # OPER -> RETURN
   if quad[0] == operToCode.get("RETURN"):
@@ -582,7 +592,14 @@ def executeQuad(quad):
 
   # OPER -> REF
   if quad[0] == operToCode.get("REF"):
-    stackDicReferences[currentStackLevel][quad[3]] = (currentStackLevel, extractValue(quad[3]))
+    # We know that value in quad[3] contains a reference
+    targetAddress = extractValue(quad[3])
+    # We check if the extracted address is also a reference to another address
+    # (This might happen when receiving vectors/matrices/objects as parameters in functions).
+    if targetAddress in stackDicReferences[currentStackLevel]:
+      stackDicReferences[currentStackLevel][quad[3]] = stackDicReferences[currentStackLevel][targetAddress]
+    else:
+      stackDicReferences[currentStackLevel][quad[3]] = (currentStackLevel, extractValue(quad[3]))
 
   
   # OPER -> DEREF

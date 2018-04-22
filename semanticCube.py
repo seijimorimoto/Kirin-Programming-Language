@@ -42,7 +42,7 @@ class SemanticCube(object):
       (typeInt, typeInt, operToCode.get("+")): typeInt,
       (typeInt, typeInt, operToCode.get("-")): typeInt,
       (typeInt, typeInt, operToCode.get("*")): typeInt,
-      (typeInt, typeInt, operToCode.get("/")): typeInt,
+      (typeInt, typeInt, operToCode.get("/")): typeDouble,
       (typeInt, typeInt, operToCode.get("%")): typeInt,
       (typeInt, typeInt, operToCode.get("<")): typeBool,
       (typeInt, typeInt, operToCode.get(">")): typeBool,

@@ -855,8 +855,22 @@ def p_np_method_6(p):
 				address = getNextAddress(currentParamTypes[index], "local", currentParamDimsX[index], currentParamDimsY[index])
 				newVarTableRow = VarTableRow(currentParamTypes[index], None, None, address, currentParamDimsX[index], currentParamDimsY[index])
 				varTable.add(currentParamIds[index], newVarTableRow)
-				# TODO: Check if operator has to be "LOAD_REF" or "LOAD_PARAM"
-				quadManager.addQuad(operToCode.get("LOAD_PARAM"), -1, -1, address)
+
+				# If the type of the parameter is an object or if it is a vector or matrix, then we know we have
+				# to load the parameter as a reference.
+				if currentParamDimsY[index] != -1:
+					for _ in range(currentParamDimsX[index]):
+						for _ in range(currentParamDimsY[index]):
+							quadManager.addQuad(operToCode.get("LOAD_REF"), -1, -1, address)
+							address = address + 1
+				elif currentParamDimsX[index] != -1:
+					for _ in range(currentParamDimsX[index]):
+						quadManager.addQuad(operToCode.get("LOAD_REF"), -1, -1, address)
+						address = address + 1
+				elif currentParamTypes[index] == keywordMapper.get("object"):
+					quadManager.addQuad(operToCode.get("LOAD_REF"), -1, -1, address)
+				else:
+					quadManager.addQuad(operToCode.get("LOAD_PARAM"), -1, -1, address)
 
 def p_np_method_7(p):
 	'''np_method_7	:'''
@@ -974,14 +988,29 @@ def p_np_func_call_3(p):
 	currentParamsTypesToBeSend = stackParamsTypesToBeSend.top()
 	localParamDimsX = stackParamsDimsX.top()
 	localParamDimsY = stackParamsDimsY.top()
-	print(localParamDimsX, localParamDimsY)
 	if funcDirTable.has(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY)):
 		funcDirRow = funcDirTable.getFuncDirRow(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY))
 		funcStartPos = funcDirRow.startPos
 		funcType = funcDirRow.blockType
-		for param in currentParamsToBeSend:
-			# TODO: Validate whether param should be send by reference or by value.
-			quadManager.addQuad(operToCode.get("PARAM"), -1, -1, param)
+
+		for index in range(len(currentParamsToBeSend)):
+			# If the type of the parameter is an object or if it is a vector or matrix, then we know we have
+			# to load the parameter as a reference.
+			address = currentParamsToBeSend[index]
+			if localParamDimsY[index] != -1:
+				for _ in range(localParamDimsX[index]):
+					for _ in range(localParamDimsY[index]):
+						quadManager.addQuad(operToCode.get("PARAM_REF"), -1, -1, address)
+						address = address + 1
+			elif localParamDimsX[index] != -1:
+				for _ in range(localParamDimsX[index]):
+					quadManager.addQuad(operToCode.get("PARAM_REF"), -1, -1, address)
+					address = address + 1
+			elif currentParamsTypesToBeSend[index] == keywordMapper.get("object"):
+				quadManager.addQuad(operToCode.get("PARAM_REF"), -1, -1, address)
+			else:
+				quadManager.addQuad(operToCode.get("PARAM"), -1, -1, address)
+		
 		quadManager.addQuad(operToCode.get("GOSUB"), -1, -1, funcStartPos)
 		# TODO: Add error message for checking if you called a void function in an expression.
 		if funcType != keywordMapper.get("void"):
@@ -1079,6 +1108,7 @@ def p_np_condition_4(p):
 	for _ in range(0, decisionsPerLevel[decisionLevel]):
 		endOfDecision = quadManager.popJump()
 		quadManager.fill(endOfDecision, quadManager.quadCont)
+	decisionsPerLevel[decisionLevel] = 0
 
 #LOOP
 def p_loop(p):
