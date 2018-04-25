@@ -91,7 +91,6 @@ decisionsPerLevel = [0]
 decisionLevel = 0
 ctDic = {}
 
-#TODO: Modify this function to accept dimX and dimY as well.
 # Helper methods for checking semantics during parsing process.
 def getNextAddress(type, scope, dimX, dimY):
 	global gInt, gDouble, gChar, gBool, lInt, lDouble, lChar, lBool, tInt, tDouble, tChar, tBool, ctInt, ctDouble, ctChar, ctBool
@@ -686,8 +685,7 @@ def p_mat_vec_access(p):
 	'''mat_vec_access	: '[' np_mat_vec_access_1 mat_vec_index mat_access np_mat_vec_access_4 ']' '''
 
 def p_mat_vec_index(p):
-	'''mat_vec_index	: '_'
-										| expression np_mat_vec_access_2'''
+	'''mat_vec_index	:	expression np_mat_vec_access_2'''
 
 def p_mat_access(p):
 	'''mat_access	: ',' np_mat_vec_access_3 mat_vec_index
@@ -709,6 +707,7 @@ def p_np_mat_vec_access_1(p):
 
 def p_np_mat_vec_access_2(p):
 	'''np_mat_vec_access_2	:'''
+	global ctDic
 	id, dim = quadManager.topDim()
 	stackDimSizes.pop() # Eliminate the top element in the stack, which is the dims of the last expression.
 	dims = stackDimSizes.top()
@@ -717,19 +716,19 @@ def p_np_mat_vec_access_2(p):
 	# If the current dim is not the last one...
 	if dim < len(dims) and dims[dim] != -1:
 		aux = quadManager.popOper()
-		dimX = dims[0]
+		dimY = dims[1]
 		tempAddress = getNextAddress(keywordMapper.get("int"), "temp", 1, 1)
 		
-		# If dimX is not in the directory of constants...
-		if dimX not in ctDic:
-			# Assign dimX to an address in the scope of constants.
+		# If dimY is not in the directory of constants...
+		# Note: dimY must be searched as a string, the keys of the dictionary of constants are strings.
+		if str(dimY) not in ctDic:
+			# Assign dimY to an address in the scope of constants.
 			constDimAddress = getNextAddress(keywordMapper.get("int"), "const", 1, 1)
-			quadManager.addQuad(operToCode.get("="), -1, dimX, constDimAddress)
-			ctDic[dimX] = constDimAddress
+			ctDic[str(dimY)] = constDimAddress
 		else:
-			constDimAddress = ctDic.get(dimX)
-			quadManager.addQuad(operToCode.get("="), -1, dimX, constDimAddress)
+			constDimAddress = ctDic.get(str(dimY))
 		
+		quadManager.addQuad(operToCode.get("="), -1, dimY, constDimAddress)
 		quadManager.addQuad(operToCode.get("*"), aux, constDimAddress, tempAddress)
 		quadManager.pushOper(tempAddress)
 
@@ -755,6 +754,7 @@ def p_np_mat_vec_access_3(p):
 
 def p_np_mat_vec_access_4(p):
 	'''np_mat_vec_access_4	:'''
+	global ctDic
 	# At this point, the top of the stackDimSizes contains the dims of the current vector/matrix being accessed.
 	aux = quadManager.popOper()
 	idBase, dim = quadManager.topDim()
@@ -767,10 +767,11 @@ def p_np_mat_vec_access_4(p):
 	# Stores the base id of the vector/matrix in a constant address, so that we can add it
 	# to the shifting value accummulated so far. This is necessary since the "+" operation adds
 	# the values stored in the addresses, not the addresses themselves.
-	if idBase in ctDic:
-		constantAddressForBase = ctDic[idBase]
+	if str(idBase) in ctDic:
+		constantAddressForBase = ctDic[str(idBase)]
 	else:
 		constantAddressForBase = getNextAddress(keywordMapper.get("int"), "const", 1, 1)
+		ctDic[str(idBase)] = constantAddressForBase
 	
 	quadManager.addQuad(operToCode.get("="), -1, idBase, constantAddressForBase)
 
@@ -1196,7 +1197,7 @@ def p_np_while_loop_3(p):
 #IN_OUT
 def p_in_out(p):
 	'''in_out	: PRINT '(' print_exp np_in_out_3 ')' ';'
-						| SCAN '(' ID np_in_out_2 id_access ')' ';' '''
+						| SCAN '(' ID np_in_out_2 id_access np_in_out_4 ')' ';' '''
 
 def p_print_exp(p):
 	'''print_exp	: expression np_in_out_1 print_more'''
@@ -1218,15 +1219,27 @@ def p_np_in_out_2(p):
 	'''np_in_out_2	:'''
 	global currentVarId
 	currentVarId = p[-1]
-	idAddress = getVarAddress(currentVarId)
-	operator = operToCode.get('scan')
-	# TODO: Modify scan for vector/matrix expressions.
-	quadManager.addQuad(operator, 0, -1, idAddress)
+	quadManager.pushOper(getVarAddress(currentVarId))
+	stackDimSizes.push(getVarDims(currentVarId))
 
 def p_np_in_out_3(p):
 	'''np_in_out_3	:'''
 	operator = operToCode.get('print')
 	quadManager.addQuad(operator, -1, -1, -1)
+
+def p_np_in_out_4(p):
+	'''np_in_out_4	:'''
+	operator = operToCode.get('scan')
+	address = quadManager.popOper()
+	dimX, dimY = stackDimSizes.pop()
+	quadManager.addQuad(operator, 0, -1, address)
+	# TODO: Update this if we want to be able to scan a complete vector/matrix.
+	if dimY != -1:
+		print("Error: Cannot use 'scan' to a matrix on line %d. Must use scan with primitive types" % (p.lexer.lineno))
+		sys.exit(0)
+	if dimX != - 1:
+		print("Error: Cannot use 'scan' to a vector on line %d. Must use scan with primitive types" % (p.lexer.lineno))
+		sys.exit(0)
 
 #RETURN
 def p_return(p):
@@ -1445,6 +1458,7 @@ def p_np_factor_5(p):
 
 def p_np_factor_6(p):
 	'''np_factor_6	:'''
+	global ctDic
 	ctValue = p[-1]
 	ctTypeCode = keywordMapper.get(currentCtType)
 	if ctValue in ctDic:
