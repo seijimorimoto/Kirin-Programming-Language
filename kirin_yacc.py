@@ -10,42 +10,23 @@ from kirin_lex import tokens
 from funcDirTable import FuncDirTable
 from funcDirRow import FuncDirRow
 from varTableRow import VarTableRow
-from semanticCube import keywordMapper
-from semanticCube import invKeywordMapper
 from semanticCube import SemanticCube
 from quadrupleManager import QuadrupleManager
-from quadrupleManager import operToCode
-from quadrupleManager import codeToOper
 from stack import Stack
-
-# Constants for initializing memory addresses.
-CONST_RETURN = -2
-CONST_G_BEGIN_INT = 0
-CONST_G_BEGIN_DOUBLE = 1000
-CONST_G_BEGIN_CHAR = 2000
-CONST_G_BEGIN_BOOL = 3000
-CONST_L_BEGIN_INT = 10000
-CONST_L_BEGIN_DOUBLE = 11000
-CONST_L_BEGIN_CHAR = 12000
-CONST_L_BEGIN_BOOL = 13000
-CONST_T_BEGIN_INT = 20000
-CONST_T_BEGIN_DOUBLE = 21000
-CONST_T_BEGIN_CHAR = 22000
-CONST_T_BEGIN_BOOL = 23000
-CONST_CT_BEGIN_INT = 30000
-CONST_CT_BEGIN_DOUBLE = 31000
-CONST_CT_BEGIN_CHAR = 32000
-CONST_CT_BEGIN_BOOL = 33000
+from kirinConstants import *
+from kirinMappers import *
 
 # Initialization of global counters
 gInt = CONST_G_BEGIN_INT
 gDouble = CONST_G_BEGIN_DOUBLE
 gChar = CONST_G_BEGIN_CHAR
 gBool = CONST_G_BEGIN_BOOL
+gObj = CONST_G_BEGIN_OBJ
 lInt = CONST_L_BEGIN_INT
 lDouble = CONST_L_BEGIN_DOUBLE
 lChar = CONST_L_BEGIN_CHAR
 lBool = CONST_L_BEGIN_BOOL
+lObj = CONST_L_BEGIN_OBJ
 tInt = CONST_T_BEGIN_INT
 tDouble = CONST_T_BEGIN_DOUBLE
 tChar = CONST_T_BEGIN_CHAR
@@ -63,7 +44,7 @@ semanticCube = SemanticCube()
 currentClass = ""
 currentMethod = ""
 currentMethodType = 0
-currentType = 0
+currentType = 0 # It is a string in case it is an object (the string will hold the name of the class of the object).
 currentDim = 0
 currentVarId = "" # The last variable seen in the parsing process.
 currentVarIdToAssign = "" # The last variable seen in the left side of an assignment in the parsing process.
@@ -92,12 +73,11 @@ decisionLevel = 0
 ctDic = {}
 
 # Helper methods for checking semantics during parsing process.
-def getNextAddress(type, scope, dimX, dimY):
-	global gInt, gDouble, gChar, gBool, lInt, lDouble, lChar, lBool, tInt, tDouble, tChar, tBool, ctInt, ctDouble, ctChar, ctBool
-	typeAsStr = invKeywordMapper.get(type)
+def getNextAddress(varType, scope, dimX, dimY):
+	global gInt, gDouble, gChar, gBool, gObj, lInt, lDouble, lChar, lBool, lObj, tInt, tDouble, tChar, tBool, ctInt, ctDouble, ctChar, ctBool
 
-	# Set the shift constant based on dimX and dimY.
-	# The shift constant is how addresses we are going to skip for the next time we want to get an address
+	# Sets the shift constant based on dimX and dimY.
+	# The shift constant is how many addresses we are going to skip for the next time we want to get an address
 	# (This is necessary for reserving addresses for vectors and matrices).
 	if dimX != -1:
 		if dimY != -1:
@@ -106,7 +86,22 @@ def getNextAddress(type, scope, dimX, dimY):
 			shiftConstant = dimX
 	else:
 		shiftConstant = 1
+	
+	# If the varType is a string, we know it is an object of a given class.
+	# "Object" type cannot be represented as a number in the typeToCode since we need to distinguish between the
+	# different classes the user defines, so we need to preserve the name of the class as the varType.
+	if type(varType) is str:
+		if scope == 'global':
+			newAddress = gObj
+			gObj = gObj + shiftConstant
+			return newAddress
+		elif scope == 'local':
+			newAddress = lObj
+			lObj = lObj + shiftConstant
+			return newAddress
 
+	# Checks the primitive types and returns the next available address.
+	typeAsStr = codeToType.get(varType)
 	if scope == 'global':
 		if typeAsStr == 'int':
 			newAddress = gInt
@@ -274,8 +269,8 @@ def generateQuadForBinaryOperator(operatorList):
 		stackDimSizes.pop()
 		operator = quadManager.popOp()
 		resType = semanticCube.checkType(operator, operType1, operType2)
-		if invKeywordMapper.get(resType) == "error":
-			print("Error: Binary '%s' does not support operands of type '%s', '%s'." % (codeToOper.get(operator), invKeywordMapper.get(operType1), invKeywordMapper.get(operType2)))
+		if codeToType.get(resType) == "error":
+			print("Error: Binary '%s' does not support operands of type '%s', '%s'." % (codeToOper.get(operator), codeToType.get(operType1), codeToType.get(operType2)))
 			sys.exit(0)
 		resAddress = getNextAddress(resType, "temp", 1, 1)
 		quadManager.addQuad(operator, oper1, oper2, resAddress)
@@ -296,8 +291,8 @@ def generateQuadForUnaryOperator(operatorList):
 		stackDimSizes.pop()
 		operator = quadManager.popOp()
 		resType = semanticCube.checkType(operator, -1, operType)
-		if invKeywordMapper.get(resType) == "error":
-			print("Error: Unary '%s' does not support operand of type '%s'." % (codeToOper.get(operator), invKeywordMapper.get(operType)))
+		if codeToType.get(resType) == "error":
+			print("Error: Unary '%s' does not support operand of type '%s'." % (codeToOper.get(operator), codeToType.get(operType)))
 			sys.exit(0)
 		resAddress = getNextAddress(resType, "temp", 1, 1)
 		quadManager.addQuad(operator, -1, oper, resAddress)
@@ -480,7 +475,7 @@ def p_np_vars_2(p):
 	global currentType
 	dimX = -1
 	dimY = -1
-	currentType = keywordMapper.get("object")
+	currentType = p[-1]
 	validateAndAddVarsToScope(dimX, dimY)
 
 def p_np_vars_3(p):
@@ -503,7 +498,7 @@ def p_np_vars_5(p):
 	expressionType = quadManager.popType()
 	stackDimSizes.pop()
 	answerType = semanticCube.checkType(currentOp, currentType, expressionType)
-	if invKeywordMapper.get(answerType) == "error":
+	if codeToType.get(answerType) == "error":
 		print("Error: Type mismatch in line %d" % (p.lexer.lineno))
 		sys.exit(0)
 	for id in currentVarIds:
@@ -519,7 +514,7 @@ def p_vec_mat_type(p):
 def p_np_vec_mat_type_1(p):
 	'''np_vec_mat_type_1	:'''
 	global currentType
-	currentType = keywordMapper.get("object")
+	currentType = p[-1]
 
 #VECTOR
 def p_vector(p):
@@ -586,16 +581,16 @@ def p_np_id_access_1(p):
 	if refersToClass == True or currentMethod == "":
 		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 		primType = varTable.get(currentVarId).varType
-		if primType != keywordMapper.get("object"):
+		if primType != typeToCode.get("object"):
 			print("Error: Cannot use the '.' operator with '%s', because it is not of object type" % (currentVarId))
 			sys.exit(0)
 	else:
 		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
 		primType = varTable.get(currentVarId).varType
-		if primType != keywordMapper.get("object"):
+		if primType != typeToCode.get("object"):
 			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 			primType = varTable.get(currentVarId).varType
-			if primType != keywordMapper.get("object"):
+			if primType != typeToCode.get("object"):
 				print("Error: Cannot use the '.' operator with '%s', because it is not of object type" % (currentVarId))
 				sys.exit(0)
 
@@ -633,7 +628,7 @@ def p_np_assignment_3(p):
 	assignedVarType = quadManager.popType()
 	stackDimSizes.pop()
 	answerType = semanticCube.checkType(currentOp, assignedVarType, expressionType)
-	if invKeywordMapper.get(answerType) == "error":
+	if codeToType.get(answerType) == "error":
 		print("Error: Type mismatch in line %d." % (p.lexer.lineno))
 		sys.exit(0)
 	quadManager.addQuad(currentOp, -1, expressionValue, assignedVar)
@@ -717,13 +712,13 @@ def p_np_mat_vec_access_2(p):
 	if dim < len(dims) and dims[dim] != -1:
 		aux = quadManager.popOper()
 		dimY = dims[1]
-		tempAddress = getNextAddress(keywordMapper.get("int"), "temp", 1, 1)
+		tempAddress = getNextAddress(typeToCode.get("int"), "temp", 1, 1)
 		
 		# If dimY is not in the directory of constants...
 		# Note: dimY must be searched as a string, the keys of the dictionary of constants are strings.
 		if str(dimY) not in ctDic:
 			# Assign dimY to an address in the scope of constants.
-			constDimAddress = getNextAddress(keywordMapper.get("int"), "const", 1, 1)
+			constDimAddress = getNextAddress(typeToCode.get("int"), "const", 1, 1)
 			ctDic[str(dimY)] = constDimAddress
 		else:
 			constDimAddress = ctDic.get(str(dimY))
@@ -735,7 +730,7 @@ def p_np_mat_vec_access_2(p):
 	if dim > 1:
 		aux2 = quadManager.popOper()
 		aux = quadManager.popOper()
-		tempAddress = getNextAddress(keywordMapper.get("int"), "temp", 1, 1)
+		tempAddress = getNextAddress(typeToCode.get("int"), "temp", 1, 1)
 		quadManager.addQuad(operToCode.get("+"), aux, aux2, tempAddress)
 		quadManager.pushOper(tempAddress)
 
@@ -770,12 +765,12 @@ def p_np_mat_vec_access_4(p):
 	if str(idBase) in ctDic:
 		constantAddressForBase = ctDic[str(idBase)]
 	else:
-		constantAddressForBase = getNextAddress(keywordMapper.get("int"), "const", 1, 1)
+		constantAddressForBase = getNextAddress(typeToCode.get("int"), "const", 1, 1)
 		ctDic[str(idBase)] = constantAddressForBase
 	
 	quadManager.addQuad(operToCode.get("="), -1, idBase, constantAddressForBase)
 
-	indexingAddress = getNextAddress(keywordMapper.get("int"), "temp", 1, 1)
+	indexingAddress = getNextAddress(typeToCode.get("int"), "temp", 1, 1)
 	# Specifies that 'indexingAddress' in this moment is not a reference to another address. This had to be done
 	# in order for the "REF" operator to work when accessing elements in a vector or matrix within a loop.
 	quadManager.addQuad(operToCode.get("DEREF"), -1 , -1, indexingAddress)
@@ -808,18 +803,18 @@ def p_np_method_1(p):
 	isCurrentMethodPrivate = False
 	isCurrentMethodIndependent = False
 	currentMethod = "constructor"
-	currentType = None
+	currentType = currentClass
 	currentMethodType = currentType
 
 def p_np_method_2(p):
 	'''np_method_2	:'''
 	global currentType
-	currentType = keywordMapper.get(p[-1])
+	currentType = typeToCode.get(p[-1])
 
 def p_np_method_3(p):
 	'''np_method_3	:'''
 	global currentType
-	currentType = keywordMapper.get("object")
+	currentType = p[-1]
 
 def p_np_method_4(p):
 	'''np_method_4	:'''
@@ -868,7 +863,7 @@ def p_np_method_6(p):
 					for _ in range(currentParamDimsX[index]):
 						quadManager.addQuad(operToCode.get("LOAD_REF"), -1, -1, address)
 						address = address + 1
-				elif currentParamTypes[index] == keywordMapper.get("object"):
+				elif currentParamTypes[index] == typeToCode.get("object"):
 					quadManager.addQuad(operToCode.get("LOAD_REF"), -1, -1, address)
 				else:
 					quadManager.addQuad(operToCode.get("LOAD_PARAM"), -1, -1, address)
@@ -912,7 +907,7 @@ def p_np_method_param_1(p):
 def p_np_method_param_2(p):
 	'''np_method_param_2	:'''
 	global currentType
-	currentType = keywordMapper.get("object")
+	currentType = p[-1]
 
 def p_np_method_param_3(p):
 	'''np_method_param_3	:'''
@@ -1007,14 +1002,14 @@ def p_np_func_call_3(p):
 				for _ in range(localParamDimsX[index]):
 					quadManager.addQuad(operToCode.get("PARAM_REF"), -1, -1, address)
 					address = address + 1
-			elif currentParamsTypesToBeSend[index] == keywordMapper.get("object"):
+			elif currentParamsTypesToBeSend[index] == typeToCode.get("object"):
 				quadManager.addQuad(operToCode.get("PARAM_REF"), -1, -1, address)
 			else:
 				quadManager.addQuad(operToCode.get("PARAM"), -1, -1, address)
 		
 		quadManager.addQuad(operToCode.get("GOSUB"), -1, -1, funcStartPos)
 		# TODO: Add error message for checking if you called a void function in an expression.
-		if funcType != keywordMapper.get("void"):
+		if funcType != typeToCode.get("void"):
 			returnAddress = getNextAddress(funcType, "temp", 1, 1)
 			quadManager.addQuad(operToCode.get("="), -1, CONST_RETURN, returnAddress)
 			quadManager.pushOper(returnAddress)
@@ -1077,7 +1072,7 @@ def p_np_condition_1(p):
 	expressionType = quadManager.popType()
 	expressionValue = quadManager.popOper()
 	stackDimSizes.pop()
-	if invKeywordMapper.get(expressionType) != "bool":
+	if codeToType.get(expressionType) != "bool":
 		print("Error: Expected boolean expression after 'if'/'elseif' in line %d" % (p.lexer.lineno))
 		sys.exit(0)
 	quadManager.addQuad(operToCode.get("GOTOF"), expressionValue, -1, -1)
@@ -1130,7 +1125,7 @@ def p_np_for_loop_2(p):
 	expressionType = quadManager.popType()
 	expressionValue = quadManager.popOper()
 	stackDimSizes.pop()
-	if invKeywordMapper.get(expressionType) != 'bool':
+	if codeToType.get(expressionType) != 'bool':
 		print("Error: Expected boolean expression in second block of 'for' statement in line %d" % (p.lexer.lineno))
 		sys.exit(0)
 	quadManager.addQuad(operToCode.get("GOTOF"), expressionValue, -1, -1)
@@ -1151,7 +1146,7 @@ def p_np_for_loop_3(p):
 	forVarId = p[-3] # p[-3] is ID of variable to be assigned to.
 	forVarIdAddress = getVarAddress(forVarId)
 	forVarIdTypePrimType = getVarType(p[-3])
-	if semanticCube.checkType(operToCode.get("="), expressionType, forVarIdTypePrimType) == keywordMapper.get("error"):
+	if semanticCube.checkType(operToCode.get("="), expressionType, forVarIdTypePrimType) == typeToCode.get("error"):
 		print("Error: Type mismatch in line %d" % (p.lexer.lineno))
 		sys.exit(0)
 	quadManager.addQuad(operToCode.get("="), -1, expressionAns, forVarIdAddress) 
@@ -1181,7 +1176,7 @@ def p_np_while_loop_2(p):
 	expressionType = quadManager.popType()
 	expressionValue = quadManager.popOper()
 	stackDimSizes.pop()
-	if invKeywordMapper.get(expressionType) != "bool":
+	if codeToType.get(expressionType) != "bool":
 		print("Error: Expected boolean expression after 'while' in line %d" % (p.lexer.lineno))
 		sys.exit(0)
 	quadManager.addQuad(operToCode.get("GOTOF"), expressionValue, -1, -1)
@@ -1256,15 +1251,15 @@ def p_np_return_1(p):
 	returnType = quadManager.popType()
 	stackDimSizes.pop()
 	if returnType != currentMethodType:
-		print("Error: Return value in line %d is not of type '%s'." % (p.lexer.lineno, invKeywordMapper.get(currentMethodType)))
+		print("Error: Return value in line %d is not of type '%s'." % (p.lexer.lineno, codeToType.get(currentMethodType)))
 		sys.exit(0)
 	else:
 		quadManager.addQuad(operToCode.get("RETURN"), returnValue, -1, CONST_RETURN)
 
 def p_np_return_2(p):
 	'''np_return_2	:'''
-	if currentMethodType != keywordMapper.get("void"):
-		print("Error: Must return a value of type '%s' in line %d." % (invKeywordMapper.get(currentMethodType), p.lexer.lineno))
+	if currentMethodType != typeToCode.get("void"):
+		print("Error: Must return a value of type '%s' in line %d." % (codeToType.get(currentMethodType), p.lexer.lineno))
 		sys.exit(0)
 	else:
 		quadManager.addQuad(operToCode.get("RETURN"), -1, -1, -1)
@@ -1379,7 +1374,7 @@ def p_type(p):
 def p_np_type_1(p):
 	'''np_type_1	:'''
 	global currentType
-	currentType = keywordMapper.get(p[-1])
+	currentType = typeToCode.get(p[-1])
 
 #VAR_CTE
 def p_var_cte(p):
@@ -1460,7 +1455,7 @@ def p_np_factor_6(p):
 	'''np_factor_6	:'''
 	global ctDic
 	ctValue = p[-1]
-	ctTypeCode = keywordMapper.get(currentCtType)
+	ctTypeCode = typeToCode.get(currentCtType)
 	if ctValue in ctDic:
 		ctAddress = ctDic[ctValue]
 	else:

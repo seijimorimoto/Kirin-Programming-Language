@@ -5,74 +5,8 @@
 
 from stack import Stack
 from quadruple import Quadruple
-
-operToCode = {
-  '=': 101,
-  '+': 102,
-  '-': 103,
-  '*': 104,
-  '/': 105,
-  '%': 106,
-  'UMINUS': 107,
-  '>': 201,
-  '>=': 202,
-  '<': 203,
-  '<=': 204,
-  '==': 205,
-  '<>': 206,
-  '~': 207,
-  'print': 301,
-  'scan': 302,
-  'GOTO': 401,
-  'GOTOF': 402,
-  'GOTOT': 403,
-  'GOSUB': 404,
-  'ERA': 501,
-  'PARAM': 502,
-  'PARAM_REF': 503,
-  'LOAD_PARAM': 504,
-  'LOAD_REF': 505,
-  'RETURN': 506,
-  'ENDPROC': 507,
-  'VER': 601,
-  'REF': 602,
-  'DEREF': 603,
-  '(': 1001
-}
-
-codeToOper = {
-  101: '=',
-  102: '+',
-  103: '-',
-  104: '*',
-  105: '/',
-  106: '%',
-  107: 'UMINUS',
-  201: '>',
-  202: '>=',
-  203: '<',
-  204: '<=',
-  205: '==',
-  206: '<>',
-  207: '~',
-  301: 'print',
-  302: 'scan',
-  401: 'GOTO',
-  402: 'GOTOF',
-  403: 'GOTOT',
-  404: 'GOSUB',
-  501: 'ERA',
-  502: 'PARAM',
-  503: 'PARAM_REF',
-  504: 'LOAD_PARAM',
-  505: 'LOAD_REF',
-  506: 'RETURN',
-  507: 'ENDPROC',
-  601: 'VER',
-  602: 'REF',
-  603: 'DEREF',
-  1001: '('
-}
+from kirinMappers import operToCode
+from kirinMappers import codeToOper
 
 class QuadrupleManager(object):
   
