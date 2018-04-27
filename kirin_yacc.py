@@ -73,10 +73,12 @@ currentParamIds = []
 currentParamTypes = []
 currentParamDimsX = []
 currentParamDimsY = []
-currentParamDimX = -1
-currentParamDimY = -1
+currentDimX = -1
+currentDimY = -1
 stackParamsToBeSend = Stack()
 stackParamsTypesToBeSend = Stack()
+stackParamsDimsX = Stack()
+stackParamsDimsY = Stack()
 stackFunctionCalls = Stack()
 stackDimSizes = Stack()
 currentCtType = ""
@@ -89,7 +91,6 @@ decisionsPerLevel = [0]
 decisionLevel = 0
 ctDic = {}
 
-#TODO: Modify this function to accept dimX and dimY as well.
 # Helper methods for checking semantics during parsing process.
 def getNextAddress(type, scope, dimX, dimY):
 	global gInt, gDouble, gChar, gBool, lInt, lDouble, lChar, lBool, tInt, tDouble, tChar, tBool, ctInt, ctDouble, ctChar, ctBool
@@ -189,7 +190,7 @@ def resetLocalAndTempMemoryAddresses():
 def validateAndAddVarsToScope(dimX, dimY):
 	for currentVarId in currentVarIds:
 		if currentMethod == "":
-			varTable = funcDirTable.getVarTable(currentClass, None) 
+			varTable = funcDirTable.getVarTable(currentClass, None, None, None) 
 			if varTable.has(currentVarId):
 				print("Error: Variable '%s' was already defined." % (currentVarId))
 				sys.exit(0)
@@ -198,7 +199,7 @@ def validateAndAddVarsToScope(dimX, dimY):
 				newVarTableRow = VarTableRow(currentType, isCurrentVarIndependent, isCurrentVarPrivate, address, dimX, dimY)
 				varTable.add(currentVarId, newVarTableRow)
 		else:
-			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
 			if varTable.has(currentVarId):
 				print("Error: Variable '%s' was already defined." % (currentVarId))
 				sys.exit(0)
@@ -209,52 +210,52 @@ def validateAndAddVarsToScope(dimX, dimY):
 
 def checkIfVariableWasDefined(id):
 	if refersToClass == True or currentMethod == "":
-		varTable = funcDirTable.getVarTable(currentClass, None)
+		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 		if varTable.has(id) == False:
 			print("Error: Variable '%s' was not declared." % (id))
 			sys.exit(0)
 	else:
-		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
 		if varTable.has(id) == False:
-			varTable = funcDirTable.getVarTable(currentClass, None)
+			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 			if varTable.has(id) == False:
 				print("Error: Variable '%s' was not declared." % (id))
 				sys.exit(0)
 
 def getVarAddress(id):
 	if refersToClass == True or currentMethod == '':
-		varTable = funcDirTable.getVarTable(currentClass, None)
+		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 		return varTable.get(id).address
 	else:
-		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
 		if varTable.has(id):
 			return varTable.get(id).address
 		else:
-			varTable = funcDirTable.getVarTable(currentClass, None)
+			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 			return varTable.get(id).address
 
 def getVarType(id):
 	if refersToClass == True or currentMethod == '':
-		varTable = funcDirTable.getVarTable(currentClass, None)
+		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 		return varTable.get(id).varType
 	else:
-		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
 		if varTable.has(id):
 			return varTable.get(id).varType
 		else:
-			varTable = funcDirTable.getVarTable(currentClass, None)
+			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 			return varTable.get(id).varType
 
 def getVarDims(id):
 	if refersToClass == True or currentMethod == '':
-		varTable = funcDirTable.getVarTable(currentClass, None)
+		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 		return (varTable.get(id).dimX, varTable.get(id).dimY)
 	else:
-		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
 		if varTable.has(id):
 			return (varTable.get(id).dimX, varTable.get(id).dimY)
 		else:
-			varTable = funcDirTable.getVarTable(currentClass, None)
+			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 			return (varTable.get(id).dimX, varTable.get(id).dimY)
 
 def generateQuadForBinaryOperator(operatorList):
@@ -330,13 +331,13 @@ def p_np_program_1(p):
 		sys.exit(0)
 	classDirTable[currentClass] = FuncDirTable()
 	funcDirRow = FuncDirRow("class", False, False, quadManager.quadCont)
-	classDirTable[currentClass].add(currentClass, None, funcDirRow)
+	classDirTable[currentClass].add(currentClass, None, None, None, funcDirRow)
 	# Assigns the function directory of the current class to the global variable funcDirTable.
 	funcDirTable = classDirTable[currentClass]
 
 def p_np_program_2(p):
 	'''np_program_2	:'''
-	if not classDirTable[currentClass].has("main", ()):
+	if not classDirTable[currentClass].has("main", (), (), ()):
 		print("Error: Main block must have a 'main' function with no parameters.")
 		sys.exit(0)
 
@@ -583,16 +584,16 @@ def p_id_var_acc(p):
 def p_np_id_access_1(p):
 	'''np_id_access_1	:'''
 	if refersToClass == True or currentMethod == "":
-		varTable = funcDirTable.getVarTable(currentClass, None)
+		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 		primType = varTable.get(currentVarId).varType
 		if primType != keywordMapper.get("object"):
 			print("Error: Cannot use the '.' operator with '%s', because it is not of object type" % (currentVarId))
 			sys.exit(0)
 	else:
-		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
 		primType = varTable.get(currentVarId).varType
 		if primType != keywordMapper.get("object"):
-			varTable = funcDirTable.getVarTable(currentClass, None)
+			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 			primType = varTable.get(currentVarId).varType
 			if primType != keywordMapper.get("object"):
 				print("Error: Cannot use the '.' operator with '%s', because it is not of object type" % (currentVarId))
@@ -684,8 +685,7 @@ def p_mat_vec_access(p):
 	'''mat_vec_access	: '[' np_mat_vec_access_1 mat_vec_index mat_access np_mat_vec_access_4 ']' '''
 
 def p_mat_vec_index(p):
-	'''mat_vec_index	: '_'
-										| expression np_mat_vec_access_2'''
+	'''mat_vec_index	:	expression np_mat_vec_access_2'''
 
 def p_mat_access(p):
 	'''mat_access	: ',' np_mat_vec_access_3 mat_vec_index
@@ -707,6 +707,7 @@ def p_np_mat_vec_access_1(p):
 
 def p_np_mat_vec_access_2(p):
 	'''np_mat_vec_access_2	:'''
+	global ctDic
 	id, dim = quadManager.topDim()
 	stackDimSizes.pop() # Eliminate the top element in the stack, which is the dims of the last expression.
 	dims = stackDimSizes.top()
@@ -715,19 +716,19 @@ def p_np_mat_vec_access_2(p):
 	# If the current dim is not the last one...
 	if dim < len(dims) and dims[dim] != -1:
 		aux = quadManager.popOper()
-		dimX = dims[0]
+		dimY = dims[1]
 		tempAddress = getNextAddress(keywordMapper.get("int"), "temp", 1, 1)
 		
-		# If dimX is not in the directory of constants...
-		if dimX not in ctDic:
-			# Assign dimX to an address in the scope of constants.
+		# If dimY is not in the directory of constants...
+		# Note: dimY must be searched as a string, the keys of the dictionary of constants are strings.
+		if str(dimY) not in ctDic:
+			# Assign dimY to an address in the scope of constants.
 			constDimAddress = getNextAddress(keywordMapper.get("int"), "const", 1, 1)
-			quadManager.addQuad(operToCode.get("="), -1, dimX, constDimAddress)
-			ctDic[dimX] = constDimAddress
+			ctDic[str(dimY)] = constDimAddress
 		else:
-			constDimAddress = ctDic.get(dimX)
-			quadManager.addQuad(operToCode.get("="), -1, dimX, constDimAddress)
+			constDimAddress = ctDic.get(str(dimY))
 		
+		quadManager.addQuad(operToCode.get("="), -1, dimY, constDimAddress)
 		quadManager.addQuad(operToCode.get("*"), aux, constDimAddress, tempAddress)
 		quadManager.pushOper(tempAddress)
 
@@ -753,6 +754,7 @@ def p_np_mat_vec_access_3(p):
 
 def p_np_mat_vec_access_4(p):
 	'''np_mat_vec_access_4	:'''
+	global ctDic
 	# At this point, the top of the stackDimSizes contains the dims of the current vector/matrix being accessed.
 	aux = quadManager.popOper()
 	idBase, dim = quadManager.topDim()
@@ -765,23 +767,26 @@ def p_np_mat_vec_access_4(p):
 	# Stores the base id of the vector/matrix in a constant address, so that we can add it
 	# to the shifting value accummulated so far. This is necessary since the "+" operation adds
 	# the values stored in the addresses, not the addresses themselves.
-	if idBase in ctDic:
-		constantAddressForBase = ctDic[idBase]
+	if str(idBase) in ctDic:
+		constantAddressForBase = ctDic[str(idBase)]
 	else:
 		constantAddressForBase = getNextAddress(keywordMapper.get("int"), "const", 1, 1)
+		ctDic[str(idBase)] = constantAddressForBase
 	
 	quadManager.addQuad(operToCode.get("="), -1, idBase, constantAddressForBase)
 
 	indexingAddress = getNextAddress(keywordMapper.get("int"), "temp", 1, 1)
+	# Specifies that 'indexingAddress' in this moment is not a reference to another address. This had to be done
+	# in order for the "REF" operator to work when accessing elements in a vector or matrix within a loop.
+	quadManager.addQuad(operToCode.get("DEREF"), -1 , -1, indexingAddress)
 	quadManager.addQuad(operToCode.get("+"), aux, constantAddressForBase, indexingAddress)
 	# Specifies that 'indexingAddress' does not contain a value, but instead is a reference to another address.
-	# TODO: Fix how REF works (specially in loops).
 	quadManager.addQuad(operToCode.get("REF"), -1, -1, indexingAddress)
 	quadManager.pushOper(indexingAddress)
 	quadManager.popOp() # Removes false bottom operator.
 	quadManager.popDim()
 	stackDimSizes.pop()
-	stackDimSizes.push((-1, -1))
+	stackDimSizes.push((-1, -1)) # Size dimensions of the new added operand (indexingAddress) to the stack of operands.
 
 #METHOD
 def p_method(p):
@@ -835,14 +840,14 @@ def p_np_method_5(p):
 def p_np_method_6(p):
 	'''np_method_6	:'''
 	global funcDirTable, varTable
-	if funcDirTable.has(currentMethod, tuple(currentParamTypes)) == True:
+	if funcDirTable.has(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY)) == True:
 		print("Error: Method '%s' at line %d was already defined with the same parameters." % (currentMethod, p.lexer.lineno))
 		sys.exit(0)
 	else:
 		newFuncDirRow = FuncDirRow(currentMethodType, isCurrentMethodIndependent, isCurrentMethodPrivate, quadManager.quadCont)
-		funcDirTable.add(currentMethod, tuple(currentParamTypes), newFuncDirRow)
+		funcDirTable.add(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY), newFuncDirRow)
 		# Get the VarTable of the 'just created' function.
-		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes))
+		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
 		for index in range(len(currentParamIds)):
 			if varTable.has(currentParamIds[index]):
 				print("Error: Parameter '%s' was already defined for '%s' method" % (currentParamIds[index], currentMethod))
@@ -851,7 +856,22 @@ def p_np_method_6(p):
 				address = getNextAddress(currentParamTypes[index], "local", currentParamDimsX[index], currentParamDimsY[index])
 				newVarTableRow = VarTableRow(currentParamTypes[index], None, None, address, currentParamDimsX[index], currentParamDimsY[index])
 				varTable.add(currentParamIds[index], newVarTableRow)
-				quadManager.addQuad(operToCode.get("LOAD_PARAM"), -1, -1, address)
+
+				# If the type of the parameter is an object or if it is a vector or matrix, then we know we have
+				# to load the parameter as a reference.
+				if currentParamDimsY[index] != -1:
+					for _ in range(currentParamDimsX[index]):
+						for _ in range(currentParamDimsY[index]):
+							quadManager.addQuad(operToCode.get("LOAD_REF"), -1, -1, address)
+							address = address + 1
+				elif currentParamDimsX[index] != -1:
+					for _ in range(currentParamDimsX[index]):
+						quadManager.addQuad(operToCode.get("LOAD_REF"), -1, -1, address)
+						address = address + 1
+				elif currentParamTypes[index] == keywordMapper.get("object"):
+					quadManager.addQuad(operToCode.get("LOAD_REF"), -1, -1, address)
+				else:
+					quadManager.addQuad(operToCode.get("LOAD_PARAM"), -1, -1, address)
 
 def p_np_method_7(p):
 	'''np_method_7	:'''
@@ -943,6 +963,8 @@ def p_np_func_call_1(p):
 	quadManager.addQuad(operToCode.get("ERA"), -1, -1, -1)
 	stackParamsToBeSend.push([])
 	stackParamsTypesToBeSend.push([])
+	stackParamsDimsX.push([])
+	stackParamsDimsY.push([])
 	quadManager.pushOp(operToCode.get("("))
 
 def p_np_func_call_2(p):
@@ -950,24 +972,46 @@ def p_np_func_call_2(p):
 	global stackParamsToBeSend, stackParamsTypesToBeSend
 	param = quadManager.popOper()
 	paramType = quadManager.popType()
-	stackDimSizes.pop()
+	dimX, dimY = stackDimSizes.pop()
 	currentParamsToBeSend = stackParamsToBeSend.top()
 	currentParamsToBeSend.append(param)
 	currentParamsTypesToBeSend = stackParamsTypesToBeSend.top()
 	currentParamsTypesToBeSend.append(paramType)
+	localParamDimsX = stackParamsDimsX.top()
+	localParamDimsX.append(dimX)
+	localParamDimsY = stackParamsDimsY.top()
+	localParamDimsY.append(dimY)
 
 def p_np_func_call_3(p):
 	'''np_func_call_3	:'''
 	funcName = stackFunctionCalls.pop()
 	currentParamsToBeSend = stackParamsToBeSend.top()
 	currentParamsTypesToBeSend = stackParamsTypesToBeSend.top()
-	if funcDirTable.has(funcName, tuple(currentParamsTypesToBeSend)):
-		funcDirRow = funcDirTable.getFuncDirRow(funcName, tuple(currentParamsTypesToBeSend))
+	localParamDimsX = stackParamsDimsX.top()
+	localParamDimsY = stackParamsDimsY.top()
+	if funcDirTable.has(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY)):
+		funcDirRow = funcDirTable.getFuncDirRow(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY))
 		funcStartPos = funcDirRow.startPos
 		funcType = funcDirRow.blockType
-		for param in currentParamsToBeSend:
-			# TODO: Validate whether param should be send by reference or by value.
-			quadManager.addQuad(operToCode.get("PARAM"), -1, -1, param)
+
+		for index in range(len(currentParamsToBeSend)):
+			# If the type of the parameter is an object or if it is a vector or matrix, then we know we have
+			# to load the parameter as a reference.
+			address = currentParamsToBeSend[index]
+			if localParamDimsY[index] != -1:
+				for _ in range(localParamDimsX[index]):
+					for _ in range(localParamDimsY[index]):
+						quadManager.addQuad(operToCode.get("PARAM_REF"), -1, -1, address)
+						address = address + 1
+			elif localParamDimsX[index] != -1:
+				for _ in range(localParamDimsX[index]):
+					quadManager.addQuad(operToCode.get("PARAM_REF"), -1, -1, address)
+					address = address + 1
+			elif currentParamsTypesToBeSend[index] == keywordMapper.get("object"):
+				quadManager.addQuad(operToCode.get("PARAM_REF"), -1, -1, address)
+			else:
+				quadManager.addQuad(operToCode.get("PARAM"), -1, -1, address)
+		
 		quadManager.addQuad(operToCode.get("GOSUB"), -1, -1, funcStartPos)
 		# TODO: Add error message for checking if you called a void function in an expression.
 		if funcType != keywordMapper.get("void"):
@@ -986,6 +1030,8 @@ def p_np_func_call_4(p):
 	quadManager.popOp()
 	stackParamsToBeSend.pop()
 	stackParamsTypesToBeSend.pop()
+	stackParamsDimsX.pop()
+	stackParamsDimsY.pop()
 
 #BLOCK
 def p_block(p):
@@ -1063,6 +1109,7 @@ def p_np_condition_4(p):
 	for _ in range(0, decisionsPerLevel[decisionLevel]):
 		endOfDecision = quadManager.popJump()
 		quadManager.fill(endOfDecision, quadManager.quadCont)
+	decisionsPerLevel[decisionLevel] = 0
 
 #LOOP
 def p_loop(p):
@@ -1150,7 +1197,7 @@ def p_np_while_loop_3(p):
 #IN_OUT
 def p_in_out(p):
 	'''in_out	: PRINT '(' print_exp np_in_out_3 ')' ';'
-						| SCAN '(' ID np_in_out_2 id_access ')' ';' '''
+						| SCAN '(' ID np_in_out_2 id_access np_in_out_4 ')' ';' '''
 
 def p_print_exp(p):
 	'''print_exp	: expression np_in_out_1 print_more'''
@@ -1172,15 +1219,27 @@ def p_np_in_out_2(p):
 	'''np_in_out_2	:'''
 	global currentVarId
 	currentVarId = p[-1]
-	idAddress = getVarAddress(currentVarId)
-	operator = operToCode.get('scan')
-	# TODO: Modify scan for vector/matrix expressions.
-	quadManager.addQuad(operator, 0, -1, idAddress)
+	quadManager.pushOper(getVarAddress(currentVarId))
+	stackDimSizes.push(getVarDims(currentVarId))
 
 def p_np_in_out_3(p):
 	'''np_in_out_3	:'''
 	operator = operToCode.get('print')
 	quadManager.addQuad(operator, -1, -1, -1)
+
+def p_np_in_out_4(p):
+	'''np_in_out_4	:'''
+	operator = operToCode.get('scan')
+	address = quadManager.popOper()
+	dimX, dimY = stackDimSizes.pop()
+	quadManager.addQuad(operator, 0, -1, address)
+	# TODO: Update this if we want to be able to scan a complete vector/matrix.
+	if dimY != -1:
+		print("Error: Cannot use 'scan' to a matrix on line %d. Must use scan with primitive types" % (p.lexer.lineno))
+		sys.exit(0)
+	if dimX != - 1:
+		print("Error: Cannot use 'scan' to a vector on line %d. Must use scan with primitive types" % (p.lexer.lineno))
+		sys.exit(0)
 
 #RETURN
 def p_return(p):
@@ -1399,6 +1458,7 @@ def p_np_factor_5(p):
 
 def p_np_factor_6(p):
 	'''np_factor_6	:'''
+	global ctDic
 	ctValue = p[-1]
 	ctTypeCode = keywordMapper.get(currentCtType)
 	if ctValue in ctDic:

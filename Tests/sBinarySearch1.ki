@@ -1,0 +1,32 @@
+Main {
+  public_func bool search(left : int, right : int, value : int, arr : int[10])
+  {
+    var middle : int;
+    middle = (left + right) / 2;
+    if (right < left) {
+      return false;
+    }
+    if (arr[middle] == value) {
+      return true;
+    }
+    elseif (arr[middle] < value) {
+      left = middle + 1;
+      return search(left, right, value, arr);
+    }
+    elseif (arr[middle] > value) {
+      right = middle - 1;
+      return search(left, right, value, arr);
+    }
+  }
+
+  public_func independent void main() {
+    vec arr : int[10];
+    var i, n : int;
+    for (i = 0; i < 10; i = i + 1) {
+      arr[i] = i;
+    }
+
+    scan(n);
+    print(search(0, 9, n, arr));
+  }
+}

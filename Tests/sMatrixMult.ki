@@ -1,0 +1,57 @@
+Main {
+  public_func independent void multMatrices(mat1 : int[2, 3], mat2 : int[3, 2], mat3 : int[2, 2]) {
+    var i, j, k, n, m, l : int = 0;
+    n = 2;
+    m = 3;
+    l = 2;
+
+    // Sets the result matrix with zeroes.
+    for (i = 0; i < n; i = i + 1) {
+      for (j = 0; j < l; j = j + 1) {
+        mat3[i, j] = 0;
+      }
+    }
+    
+    // Matrix multiplication algorithm.
+    for (i = 0; i < n; i = i + 1) {
+      for (j = 0; j < l; j = j + 1) {
+        for (k = 0; k < m; k = k + 1) {
+          mat3[i,j] = mat3[i,j] + mat1[i,k] * mat2[k,j];
+        }
+      }
+    }
+  }
+
+  public_func independent void main() {
+    var i, j : int;
+    mat mat1 : int[2, 3];
+    mat mat2 : int[3, 2];
+    mat mat3 : int[2, 2];
+    var n, m, l : int;
+
+    n = 2;
+    m = 3;
+    l = 2;
+
+    for (i = 0; i < n; i = i + 1) {
+      for (j = 0; j < m; j = j + 1) {
+        scan(mat1[i, j]);
+      }
+    }
+
+    for (i = 0; i < m; i = i + 1) {
+      for (j = 0; j < n; j = j + 1) {
+        scan(mat2[i, j]);
+      }
+    }
+
+    multMatrices(mat1, mat2, mat3);
+
+    print("RESULTADO");
+    for (i = 0; i < n; i = i + 1) {
+      for (j = 0; j < l; j = j + 1) {
+        print(mat3[i, j]);
+      }
+    }
+  }
+}
