@@ -9,6 +9,7 @@ import ply.yacc as yacc
 from kirin_lex import tokens
 from funcDirTable import FuncDirTable
 from funcDirRow import FuncDirRow
+from varTable import VarTable
 from varTableRow import VarTableRow
 from semanticCube import SemanticCube
 from quadrupleManager import QuadrupleManager
@@ -72,7 +73,16 @@ decisionsPerLevel = [0]
 decisionLevel = 0
 ctDic = {}
 
-# Helper methods for checking semantics during parsing process.
+# Returns the next available address (according to the parameters received) to assign it to a variable.
+# Parameters:
+# - varType: Type of the variable that is going to be assigned the address returned by this function.
+#   If it is a primitive type, it is represented as a number. If it is an object type, it is represented as a string.
+# - scope: Scope of the variable that is going to be assigned the address returned by this function
+#   (i.e. global, local, temp or constant).
+# - dimX: Size of the 'x' dimension of the variable that is going to be assigned the address returned by this function.
+#   It is -1 if the variable is not a vector/matrix.
+# - dimY: Size of the 'y' dimension of the variable that is going to be assigned the address returned by this function.
+#   It is -1 if the variable is not a matrix.
 def getNextAddress(varType, scope, dimX, dimY):
 	global gInt, gDouble, gChar, gBool, gObj, lInt, lDouble, lChar, lBool, lObj, tInt, tDouble, tChar, tBool, ctInt, ctDouble, ctChar, ctBool
 
@@ -171,19 +181,23 @@ def getNextAddress(varType, scope, dimX, dimY):
 			ctBool = ctBool + shiftConstant
 			return newAddress
 
+# Sets the global counters of local and temporal addresses to their initial values.
 def resetLocalAndTempMemoryAddresses():
-	global lInt, lDouble, lChar, lBool, tInt, tDouble, tChar, tBool
+	global lInt, lDouble, lChar, lBool, lObj, tInt, tDouble, tChar, tBool
 	lInt = CONST_L_BEGIN_INT
 	lDouble = CONST_L_BEGIN_DOUBLE
 	lChar = CONST_L_BEGIN_CHAR
 	lBool = CONST_L_BEGIN_BOOL
+	lObj = CONST_L_BEGIN_OBJ
 	tInt = CONST_T_BEGIN_INT
 	tDouble = CONST_T_BEGIN_DOUBLE
 	tChar = CONST_T_BEGIN_CHAR
 	tBool = CONST_T_BEGIN_BOOL
 
 def validateAndAddVarsToScope(dimX, dimY):
+	# Iterate over all the variables that will be added with the currentType.
 	for currentVarId in currentVarIds:
+		# If the variables we are adding are global (i.e. attributes of the current class)...
 		if currentMethod == "":
 			varTable = funcDirTable.getVarTable(currentClass, None, None, None) 
 			if varTable.has(currentVarId):
@@ -191,7 +205,8 @@ def validateAndAddVarsToScope(dimX, dimY):
 				sys.exit(0)
 			else:
 				address = getNextAddress(currentType, "global", dimX, dimY)
-				newVarTableRow = VarTableRow(currentType, isCurrentVarIndependent, isCurrentVarPrivate, address, dimX, dimY)
+				objVarTable = getNewObjVarTable(currentType, "global")
+				newVarTableRow = VarTableRow(currentType, isCurrentVarIndependent, isCurrentVarPrivate, address, dimX, dimY, objVarTable)
 				varTable.add(currentVarId, newVarTableRow)
 		else:
 			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
@@ -200,7 +215,8 @@ def validateAndAddVarsToScope(dimX, dimY):
 				sys.exit(0)
 			else:
 				address = getNextAddress(currentType, "local", dimX, dimY)
-				newVarTableRow = VarTableRow(currentType, None, None, address, dimX, dimY)
+				objVarTable = getNewObjVarTable(currentType, "local")
+				newVarTableRow = VarTableRow(currentType, None, None, address, dimX, dimY, objVarTable)
 				varTable.add(currentVarId, newVarTableRow)
 
 def checkIfVariableWasDefined(id):
@@ -216,6 +232,11 @@ def checkIfVariableWasDefined(id):
 			if varTable.has(id) == False:
 				print("Error: Variable '%s' was not declared." % (id))
 				sys.exit(0)
+
+def checkIfClassExists(className, p):
+	if className not in classDirTable:
+		print("Error: Cannot create object in line %d since class '%s' was not defined." % (p.lexer.lineno, currentType))
+		sys.exit(0)
 
 def getVarAddress(id):
 	if refersToClass == True or currentMethod == '':
@@ -252,6 +273,35 @@ def getVarDims(id):
 		else:
 			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
 			return (varTable.get(id).dimX, varTable.get(id).dimY)
+
+def getNewObjVarTable(varType, scope):
+	# If the varType represents an object, obtains the varTable of the class of the object, creates a modified copy
+	# of it (by replacing the addresses of its attributes by new addresses) and returns this copy.
+	# If the varType does not represent an object, returns None.
+	if type(varType) is str:
+		classVarTable = classDirTable[varType].getVarTable(varType, None, None, None)
+		copyVarTable = VarTable()
+		# Iterates over each varTableRow in the varTable of the class... 
+		for classVarId, classVarTableRow in classVarTable.table:
+			classAttrType = classVarTableRow.varType
+			classAttrIsIndependent = classVarTableRow.isIndependent
+			classAttrIsPrivate = classVarTableRow.isPrivate
+			classAttrDimX = classVarTableRow.dimX
+			classAttrDimY = classVarTableRow.dimY
+			# If the type of the attribute represents an object, then we call recursively getNewObjVarTable to associate
+			# the varTable that contains all the attributes of that object to it. 
+			if type(classAttrType) is str:
+				innerObjVarTable = getNewObjVarTable(classAttrType, scope)
+				newAddress = -1
+			else:
+				newAddress = getNextAddress(classAttrType, scope, classAttrDimX, classAttrDimY)
+				innerObjVarTable = None
+			# Creates copy of the original varTableRow, but with the new address.
+			copyVarTableRow = VarTableRow(classAttrType, classAttrIsIndependent, classAttrIsPrivate, newAddress, classAttrDimX, classAttrDimY, innerObjVarTable)
+			copyVarTable.add(classVarId)
+		return copyVarTable
+	else:
+		return None
 
 def generateQuadForBinaryOperator(operatorList):
 	operatorMatch = False
@@ -347,7 +397,7 @@ def p_class_block(p):
 	'''class_block	: '{' class_blck_body '}' '''
 
 def p_class_blck_body(p):
-	'''class_blck_body	: class_vars class_asgs class_func
+	'''class_blck_body	: class_vars class_func
 											| class_func'''
 
 def p_class_vars(p):
@@ -356,10 +406,6 @@ def p_class_vars(p):
 def p_more_class_vars(p):
 	'''more_class_vars	: class_vars
 											| empty'''
-
-def p_class_asgs(p):
-	'''class_asgs	: assignment class_asgs
-								| empty'''
 
 def p_class_func(p):
 	'''class_func	: method class_func
@@ -452,11 +498,11 @@ def p_vars_type(p):
 	        			| ID np_vars_2 vars_tp_b'''
 
 def p_vars_tp_a(p):
-	'''vars_tp_a	: '=' np_vars_4 expression np_vars_5
+	'''vars_tp_a	: np_vars_6 '=' np_vars_4 expression np_vars_5
 	   				    | empty'''
 
 def p_vars_tp_b(p):
-	'''vars_tp_b	: '=' vars_assgn
+	'''vars_tp_b	: np_vars_6 '=' vars_assgn
 	   					  | empty'''
 
 def p_vars_assgn(p):
@@ -476,6 +522,7 @@ def p_np_vars_2(p):
 	dimX = -1
 	dimY = -1
 	currentType = p[-1]
+	checkIfClassExists(currentType, p)
 	validateAndAddVarsToScope(dimX, dimY)
 
 def p_np_vars_3(p):
@@ -505,6 +552,12 @@ def p_np_vars_5(p):
 		address = getVarAddress(id)
 		quadManager.addQuad(currentOp, -1, expressionValue, address)
 
+def p_np_vars_6(p):
+	'''np_vars_6	:'''
+	if currentMethod == "":
+		print("Error: Cannot make an assignment outside of a function block in line %d." (p.lexer.lineno))
+		sys.exit(0)
+
 #VEC_MAT_TYPE
 def p_vec_mat_type(p):
 	'''vec_mat_type	: type
@@ -515,6 +568,7 @@ def p_np_vec_mat_type_1(p):
 	'''np_vec_mat_type_1	:'''
 	global currentType
 	currentType = p[-1]
+	checkIfClassExists(currentType, p)
 
 #VECTOR
 def p_vector(p):
@@ -849,7 +903,8 @@ def p_np_method_6(p):
 				sys.exit(0)
 			else:
 				address = getNextAddress(currentParamTypes[index], "local", currentParamDimsX[index], currentParamDimsY[index])
-				newVarTableRow = VarTableRow(currentParamTypes[index], None, None, address, currentParamDimsX[index], currentParamDimsY[index])
+				objVarTable = getNewObjVarTable(currentParamTypes[index], "local")
+				newVarTableRow = VarTableRow(currentParamTypes[index], None, None, address, currentParamDimsX[index], currentParamDimsY[index], objVarTable)
 				varTable.add(currentParamIds[index], newVarTableRow)
 
 				# If the type of the parameter is an object or if it is a vector or matrix, then we know we have
@@ -863,7 +918,7 @@ def p_np_method_6(p):
 					for _ in range(currentParamDimsX[index]):
 						quadManager.addQuad(operToCode.get("LOAD_REF"), -1, -1, address)
 						address = address + 1
-				elif currentParamTypes[index] == typeToCode.get("object"):
+				elif type(currentParamTypes[index]) is str:
 					quadManager.addQuad(operToCode.get("LOAD_REF"), -1, -1, address)
 				else:
 					quadManager.addQuad(operToCode.get("LOAD_PARAM"), -1, -1, address)
@@ -908,6 +963,7 @@ def p_np_method_param_2(p):
 	'''np_method_param_2	:'''
 	global currentType
 	currentType = p[-1]
+	checkIfClassExists(currentType, p)
 
 def p_np_method_param_3(p):
 	'''np_method_param_3	:'''
@@ -937,7 +993,16 @@ def p_np_method_param_6(p):
 
 #CREATE_OBJ
 def p_create_obj(p):
-	'''create_obj	: NEW func_call'''
+	'''create_obj	: NEW np_create_obj_1 func_call'''
+
+#NEURAL POINTS FOR CREATE_OBJ
+def p_np_create_obj_1(p):
+	'''np_create_obj_1	:'''
+	operType = quadManager.topType()
+	if type(operType) is not str:
+		print("Error: Cannot call a constructor on primitive type in line %d" % (p.lexer.lineno))
+		sys.exit(0)
+	stackFunctionCalls.push("constructor")
 
 #FUNC_CALL
 def p_func_call(p):

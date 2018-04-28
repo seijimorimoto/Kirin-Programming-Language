@@ -15,7 +15,7 @@ class ComplexNumber {
 Main {
   public_func independent void main() {
     var cNum : ComplexNumber;
-    cNum = new (1, 5);
-    cNum.display();
+    //cNum = new (1, 5);
+    //cNum.display();
   }
 }
