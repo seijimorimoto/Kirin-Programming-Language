@@ -507,7 +507,11 @@ def p_vars_tp_b(p):
 
 def p_vars_assgn(p):
 	'''vars_assgn	: create_obj
-	  				    | expression'''
+	  				    | this_id vars_assgn_2'''
+
+def p_vars_assgn_2(p):
+	'''vars_assgn_2	: '.' ID
+									|	empty'''
 
 #NEURAL POINTS FOR VARS
 def p_np_vars_1(p):
@@ -558,21 +562,9 @@ def p_np_vars_6(p):
 		print("Error: Cannot make an assignment outside of a function block in line %d." (p.lexer.lineno))
 		sys.exit(0)
 
-#VEC_MAT_TYPE
-def p_vec_mat_type(p):
-	'''vec_mat_type	: type
-									| ID np_vec_mat_type_1'''
-
-#NEURAL POINTS FOR VEC_MAT_TYPE
-def p_np_vec_mat_type_1(p):
-	'''np_vec_mat_type_1	:'''
-	global currentType
-	currentType = p[-1]
-	checkIfClassExists(currentType, p)
-
 #VECTOR
 def p_vector(p):
-	'''vector	: VEC ids ':' vec_mat_type '[' CONST_I ']' np_vector_1 vec_assgn ';' np_vector_2'''
+	'''vector	: VEC ids ':' type '[' CONST_I ']' np_vector_1 vec_assgn ';' np_vector_2'''
 
 def p_vec_assgn(p):
 	'''vec_assgn	: '=' vector_exp
@@ -595,7 +587,7 @@ def p_np_vector_2(p):
 
 #MATRIX
 def p_matrix(p):
-	'''matrix	: MAT ids ':' vec_mat_type '[' CONST_I ',' CONST_I ']' np_matrix_1 mat_assgn ';' np_matrix_2'''
+	'''matrix	: MAT ids ':' type '[' CONST_I ',' CONST_I ']' np_matrix_1 mat_assgn ';' np_matrix_2'''
 
 def p_mat_assgn(p):
 	'''mat_assgn	: '=' matrix_exp
@@ -616,47 +608,39 @@ def p_np_matrix_2(p):
 	global currentVarIds
 	currentVarIds[:] = []
 
-#ID_ACCESS
-def p_id_access(p):
-	'''id_access	: id_mat_acc id_var_acc'''
-
-def p_id_mat_acc(p):
-	'''id_mat_acc	: mat_vec_access
-								| empty'''
-
-def p_id_var_acc(p):
-	'''id_var_acc	: '.' np_id_access_1 ID id_mat_acc
-								| empty'''
-
 #NEURAL POINTS FOR ID_ACCESS
 # TODO: Possibly refactor this into a method (it is very similar to checkIfVariableWasDefined)
-def p_np_id_access_1(p):
-	'''np_id_access_1	:'''
-	if refersToClass == True or currentMethod == "":
-		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
-		primType = varTable.get(currentVarId).varType
-		if primType != typeToCode.get("object"):
-			print("Error: Cannot use the '.' operator with '%s', because it is not of object type" % (currentVarId))
-			sys.exit(0)
-	else:
-		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
-		primType = varTable.get(currentVarId).varType
-		if primType != typeToCode.get("object"):
-			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
-			primType = varTable.get(currentVarId).varType
-			if primType != typeToCode.get("object"):
-				print("Error: Cannot use the '.' operator with '%s', because it is not of object type" % (currentVarId))
-				sys.exit(0)
+# def p_np_id_access_1(p):
+# 	'''np_id_access_1	:'''
+# 	if refersToClass == True or currentMethod == "":
+# 		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+# 		primType = varTable.get(currentVarId).varType
+# 		if primType != typeToCode.get("object"):
+# 			print("Error: Cannot use the '.' operator with '%s', because it is not of object type" % (currentVarId))
+# 			sys.exit(0)
+# 	else:
+# 		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+# 		primType = varTable.get(currentVarId).varType
+# 		if primType != typeToCode.get("object"):
+# 			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+# 			primType = varTable.get(currentVarId).varType
+# 			if primType != typeToCode.get("object"):
+# 				print("Error: Cannot use the '.' operator with '%s', because it is not of object type" % (currentVarId))
+# 				sys.exit(0)
 
 #ASSIGNMENT
 def p_assignment(p):
-	'''assignment	: this ID np_assignment_1 id_access '=' np_assignment_2 ass_value ';' '''
+	'''assignment	: this_id np_assignment_1 assg_access '=' np_assignment_2 assg_value ';' '''
 
-def p_ass_value(p):
-	'''ass_value	: create_obj
+def p_assg_access(p):
+	'''assg_access	:	mat_vec_access
+									|	'.' ID mat_vec_access'''
+
+def p_assg_value(p):
+	'''assg_value	: create_obj
 								| expression np_assignment_3
 								| matrix_exp
-	        			| vector_exp'''
+	        			| vector_exp'''		
 
 #NEURAL POINTS FOR ASSIGNMENT
 def p_np_assignment_1(p):
@@ -703,16 +687,17 @@ def p_np_this_2(p):
 	global refersToClass	
 	refersToClass = False
 
+#THIS_ID
+def p_this_id(p):
+	'''this_id	:	this ID'''
+	p[0] = p[2]
+
 #VECTOR_EXP
 def p_vector_exp(p):
 	'''vector_exp	: '[' vec_elem ']' '''
 
 def p_vec_elem(p):
-	'''vec_elem	: vec_object vec_more'''
-
-def p_vec_object(p):
-	'''vec_object	: create_obj
-	    					| expression'''
+	'''vec_elem	: expression vec_more'''
 
 def p_vec_more(p):
 	'''vec_more	: ',' vec_elem
@@ -731,7 +716,8 @@ def p_mat_more(p):
 
 #MAT_VEC_ACCESS
 def p_mat_vec_access(p):
-	'''mat_vec_access	: '[' np_mat_vec_access_1 mat_vec_index mat_access np_mat_vec_access_4 ']' '''
+	'''mat_vec_access	: '[' np_mat_vec_access_1 mat_vec_index mat_access np_mat_vec_access_4 ']'
+										| empty'''
 
 def p_mat_vec_index(p):
 	'''mat_vec_index	:	expression np_mat_vec_access_2'''
@@ -847,8 +833,7 @@ def p_func_spec(p):
 
 def p_func_type(p):
 	'''func_type	: VOID np_method_2
-								| type
-								| ID np_method_3'''
+								| type'''
 
 #NEURAL POINTS FOR METHOD
 def p_np_method_1(p):
@@ -864,11 +849,6 @@ def p_np_method_2(p):
 	'''np_method_2	:'''
 	global currentType
 	currentType = typeToCode.get(p[-1])
-
-def p_np_method_3(p):
-	'''np_method_3	:'''
-	global currentType
-	currentType = p[-1]
 
 def p_np_method_4(p):
 	'''np_method_4	:'''
@@ -935,14 +915,14 @@ def p_opt_method_param(p):
 											| empty'''
 
 def p_method_param(p):
-	'''method_param	: ID np_method_param_1 ':' param_type param_mat_vec np_method_param_6 more_params'''
+	'''method_param	: ID np_method_param_1 ':' param_type np_method_param_6 more_params'''
 
 def p_more_params(p):
 	'''more_params	: ',' method_param
 									| empty'''
 
 def p_param_type(p):
-	'''param_type	: type
+	'''param_type	: type param_mat_vec
 								| ID np_method_param_2'''
 
 def p_param_mat_vec(p):
@@ -1002,7 +982,7 @@ def p_np_create_obj_1(p):
 	if type(operType) is not str:
 		print("Error: Cannot call a constructor on primitive type in line %d" % (p.lexer.lineno))
 		sys.exit(0)
-	stackFunctionCalls.push("constructor")
+	stackFunctionCalls.push((currentVarId, "constructor"))
 
 #FUNC_CALL
 def p_func_call(p):
@@ -1109,8 +1089,12 @@ def p_statement(p):
 								| loop
 								| in_out
 								| return
-								| this ID np_statement_1 func_call ';'
+								| CALL this_id statement_function ';'
 								| var_decl'''
+
+def p_statement_function(p):
+	'''statement_function	: '.' ID func_call
+												| np_statement_1 func_call'''
 
 #NEURAL POINTS FOR STATEMENT
 def p_np_statement_1(p):
@@ -1257,7 +1241,7 @@ def p_np_while_loop_3(p):
 #IN_OUT
 def p_in_out(p):
 	'''in_out	: PRINT '(' print_exp np_in_out_3 ')' ';'
-						| SCAN '(' ID np_in_out_2 id_access np_in_out_4 ')' ';' '''
+						| SCAN '(' this_id scan_obj mat_vec_access np_in_out_4 ')' ';' '''
 
 def p_print_exp(p):
 	'''print_exp	: expression np_in_out_1 print_more'''
@@ -1265,6 +1249,10 @@ def p_print_exp(p):
 def p_print_more(p):
 	'''print_more	: ',' print_exp
 								| empty'''
+
+def p_scan_obj(p):
+	'''scan_obj	: '.' ID
+							| np_in_out_2'''
 
 #NEURAL POINTS FOR IN_OUT
 def p_np_in_out_1(p):
@@ -1488,11 +1476,16 @@ def p_fact_neg(p):
 def p_fact_body(p):
 	'''fact_body	: '(' np_factor_4 expression ')' np_factor_5
 								| var_cte np_factor_6
-								| this ID np_factor_1 fact_id'''
+								| this_id np_factor_1 fact_id'''
 
 def p_fact_id(p):
 	'''fact_id	: np_factor_9 func_call
-							| np_factor_8 id_access'''
+							| np_factor_8 mat_vec_access
+							| '.' ID fact_id_2'''
+
+def p_fact_id_2(p):
+	'''fact_id_2	: func_call
+								| mat_vec_access'''
 
 #NEURAL POINTS FOR FACTOR
 def p_np_factor_1(p):
