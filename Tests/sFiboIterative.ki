@@ -15,7 +15,7 @@ Main {
     arr[0] = 1;
     arr[1] = 1;
     scan(n);
-    fibo(n, arr);
+    call fibo(n, arr);
     print(arr[n - 1]);
   } 
 }

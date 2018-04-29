@@ -45,7 +45,7 @@ Main {
       }
     }
 
-    multMatrices(mat1, mat2, mat3);
+    call multMatrices(mat1, mat2, mat3);
 
     print("RESULTADO");
     for (i = 0; i < n; i = i + 1) {

@@ -12,7 +12,7 @@ Main {
     i = b;
     while (i > 0) {
       a = a + b * i + b;
-      uno(i*2);
+      call uno(i*2);
       print(a);
       i = i - 1;
     }
@@ -23,7 +23,7 @@ Main {
     b = a + 1;
     print(a, b);
     f = 3.14;
-    dos(a + b * 2, b, f * 3);
+    call dos(a + b * 2, b, f * 3);
     print(a, b, f * 2 + 1);
   }
 }
