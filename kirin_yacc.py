@@ -48,7 +48,6 @@ currentMethodType = 0
 currentType = 0 # It is a string in case it is an object (the string will hold the name of the class of the object).
 currentDim = 0
 currentVarId = "" # The last variable seen in the parsing process.
-currentVarIdToAssign = "" # The last variable seen in the left side of an assignment in the parsing process.
 currentVarIds = []
 currentParamId = ""
 currentParamIds = []
@@ -533,6 +532,33 @@ def resetObjAttr(objVarTable):
 			quadManager.addQuad(operToCode.get("DEL_ATTR"), numOfResetAddresses, -1, objAttrAddress)
 
 
+# Adds the attributes and methods of a parent class to a child class.
+# Parameters:
+# - parentClass: Name of the parent class.
+# - childClass: Name of the child class who will inherit the attributes and methods of the parent class.
+def addInfoFromParentToChildClass(parentClass, childClass):
+	parentClassFuncDirTable = classDirTable[parentClass]
+	childClassFuncDirTable = classDirTable[childClass]
+	# Gets the VarTable that contains all the attributes of the parent class.	
+	parentClassVarTable = parentClassFuncDirTable.getFuncDirRow(parentClass, None, None, None).varTable
+	# Gets the VarTable that contains all the attributes of the child class (in this moment 0 attributes, since
+	# the class has just been created).	
+	childClassVarTable = childClassFuncDirTable.getFuncDirRow(childClass, None, None, None).varTable
+	
+	# Iterates over all the elements in the VarTable of the parent class and adds them to the
+	# VarTable of the childClass. Each element must be added individually instead of doing something like
+	# childClassFuncDirTable.add(childClass, None, None, None, parentClassVarTable); since we want to be able
+	# to add more items to childClassVarTable without having those additions as well in parentClassVarTable.
+	for parentClassVarId, parentClassVarTableRow in parentClassVarTable.table.items():
+		childClassVarTable.add(parentClassVarId, parentClassVarTableRow)
+	
+	# Iterates over all the elements in the FuncDirTable of the parent class and adds them to the
+	# FuncDirTable of the childClass, as long as the element being added is not a constructor.
+	for (blockId, blockParams, blockDimsX, blockDimsY), parentFuncDirRow in parentClassFuncDirTable.table.items():
+		if blockId != "constructor":
+			childClassFuncDirTable.add(blockId, blockParams, blockDimsX, blockDimsY, parentFuncDirRow)
+
+
 def generateQuadForBinaryOperator(operatorList):
 	operatorMatch = False
 	topOp = codeToOper.get(quadManager.topOp())
@@ -589,7 +615,7 @@ def p_program_class(p):
 										| empty'''
 
 def p_prog_inh(p):
-	'''prog_inh	: INHERITS ID
+	'''prog_inh	: INHERITS ID np_program_3
 							| empty'''
 
 #NEURAL POINTS FOR PROGRAM_CLASS
@@ -616,6 +642,18 @@ def p_np_program_2(p):
 	if not classDirTable[currentClass].has("main", (), (), ()):
 		print("Error: Main block must have a 'main' function with no parameters.")
 		sys.exit(0)
+
+def p_np_program_3(p):
+	'''np_program_3	:'''
+	parentClass = p[-1]
+	if parentClass not in classDirTable:
+		print("Error: Parent class '%s' in line %d was not defined." % (parentClass, p.lexer.lineno))
+		sys.exit(0)
+	if parentClass == currentClass:
+		print("Error: The parent class cannot be the same as the child class in line %d." %(p.lexer.lineno))
+		sys.exit(0)
+	addInfoFromParentToChildClass(parentClass, currentClass)
+
 
 #VAR_DECL
 def p_var_decl(p):

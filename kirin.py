@@ -129,7 +129,7 @@ def loadQuadList(fileName):
         quadList[index][2] = float(quadList[index][2])
       except ValueError:
         quadList[index][2] = quadList[index][2]
-      
+    
     quadList[index][3] = int(quadList[index][3])
 
 # quad = A quadruple in the form of a list of 4 values.
