@@ -273,9 +273,10 @@ def checkIfObjectHasAttribute(objId, attrId, p):
 # Returns the memory address that corresponds to a given variable. It is assumed that the existence of the variable and the object
 # (if the variable is inside it) was previously validated by calling checkIfVariableWasDefined() or checkIfObjectHasAttribute(). 
 # Parameters:
+# - refersToClass: True if the variable or the object that contains it was referenced using 'this'. False otherwise.
 # - objId: Name of the object that contains the variable whose address is desired. It is "" if the variable is not inside an object.
 # - varId: Name of the variable (or attribute, if inside an object) whose address is desired.
-def getVarAddress(objId, varId):
+def getVarAddress(refersToClass, objId, varId):
 	# If 'objId' is "", we know 'varId' is a simple variable and not an attribute of an object.
 	if objId == "":
 		# If 'varId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
@@ -314,9 +315,10 @@ def getVarAddress(objId, varId):
 # Returns the type that corresponds to a given variable. It is assumed that the existence of the variable and the object
 # (if the variable is inside it) was previously validated by calling checkIfVariableWasDefined() or checkIfObjectHasAttribute(). 
 # Parameters:
+# - refersToClass: True if the variable or the object that contains it was referenced using 'this'. False otherwise.
 # - objId: Name of the object that contains the variable whose type is desired. It is "" if the variable is not inside an object.
 # - varId: Name of the variable (or attribute, if inside an object) whose type is desired.
-def getVarType(objId, varId):
+def getVarType(refersToClass, objId, varId):
 	# If 'objId' is "", we know 'varId' is a simple variable and not an attribute of an object.
 	if objId == "":
 		# If 'varId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
@@ -355,9 +357,10 @@ def getVarType(objId, varId):
 # Returns a tuple with the dimensions (x, y) corresponding to a given variable. It is assumed that the existence of the variable and the
 # object (if the variable is inside it) was previously validated by calling checkIfVariableWasDefined() or checkIfObjectHasAttribute(). 
 # Parameters:
+# - refersToClass: True if the variable or the object that contains it was referenced using 'this'. False otherwise.
 # - objId: Name of the object that contains the variable whose dimensions are desired. It is "" if the variable is not inside an object.
 # - varId: Name of the variable (or attribute, if inside an object) whose dimensions are desired.
-def getVarDims(objId, varId):
+def getVarDims(refersToClass, objId, varId):
 	# If 'objId' is "", we know 'varId' is a simple variable and not an attribute of an object.
 	if objId == "":
 		# If 'varId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
@@ -392,6 +395,26 @@ def getVarDims(objId, varId):
 			attributesTable = objVarTableRow.objVarTable # Obtains the VarTable containing the information of all the attributes of the object.
 			return (attributesTable.get(varId).dimX, attributesTable.get(varId).dimY)
 
+# Returns the VarTable containing the attributes of an object.
+# Parameters:
+# - refersToClass: True if the object (whose VarTable of attributes is to be returned) was referenced using 'this'. False otherwise.
+# - objId: Name of the object whose VarTable of attributes is to be returned.
+def getAttrVarTable(refersToClass, objId):
+	# If 'objId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
+	if refersToClass == True:
+		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+		objVarTableRow = varTable.get(objId)
+		return objVarTableRow.objVarTable
+
+	else:
+		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+		# If the VarTable of the current method does not contain the object with id 'objId', then we know the object is a global
+		# variable and we must find its information in the VarTable of the current class. 
+		if varTable.has(objId) == False:
+			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+		objVarTableRow = varTable.get(objId)
+		return objVarTableRow.objVarTable
+
 
 def getNewObjVarTable(varType, scope):
 	# If the varType represents an object, obtains the varTable of the class of the object, creates a modified copy
@@ -421,6 +444,39 @@ def getNewObjVarTable(varType, scope):
 		return copyVarTable
 	else:
 		return None
+
+# Maps the addresses of the attributes of a class to the addresses of a specific instance (object) of that class,
+# so that in execution, when calling a function from an object, the values used within the function are those from the
+# object.
+# Parameters:
+# - objVarTable: VarTable of the object.
+# - classVarTable: VarTable of the class from which attribute addresses will be mapped to those in the objVarTable.
+def mapObjAttrToClassAttr(objVarTable, classVarTable):
+	# Iterate over each VarTableRow in objVarTable...
+	for attrName, attrVarTableRow in objVarTable.table.items():
+		attrType = attrVarTableRow.varType
+		# If the type of the attribute represents an object, then we call recursively mapObjAttrToClassAttr, so that
+		# its attributes are also mapped correctly.
+		if type(attrType) is str:
+			innerObjVarTable = attrVarTableRow.objVarTable
+			innerClassVarTable = classVarTable.get(attrName).objVarTable
+			mapObjAttrToClassAttr(innerObjVarTable, innerClassVarTable)
+		else:
+			objAttrAddress = attrVarTableRow.address
+			classAttrAddress = classVarTable.get(attrName).address
+			attrDimX = attrVarTableRow.dimX
+			attrDimY = attrVarTableRow.dimY
+			# Sets how many consecutive addresses will be mapped based on the dimensions of the attribute.
+			# If the attribute has no dimensions (i.e. dimX = -1 and dimY = -1), then 1 consecutive address is used.
+			if attrDimY != -1:
+				numOfMapAddresses = attrDimX * attrDimY
+			elif attrDimX != -1:
+				numOfMapAddresses = attrDimX
+			else:
+				numOfMapAddresses = 1
+			# Creates the quadruple that maps addresses from the class to addresses from the object.
+			quadManager.addQuad(operToCode.get("MAP_ATTR"), numOfMapAddresses, classAttrAddress, objAttrAddress)
+
 
 def generateQuadForBinaryOperator(operatorList):
 	operatorMatch = False
@@ -624,6 +680,7 @@ def p_vars_tp_b(p):
 	'''vars_tp_b	: np_vars_6 '=' vars_assgn
 	   					  | empty'''
 
+# TODO: Check these cases.
 def p_vars_assgn(p):
 	'''vars_assgn	: create_obj
 	  				    | this_id vars_assgn_2'''
@@ -672,7 +729,7 @@ def p_np_vars_5(p):
 		print("Error: Type mismatch in line %d" % (p.lexer.lineno))
 		sys.exit(0)
 	for id in currentVarIds:
-		address = getVarAddress("", id)
+		address = getVarAddress(refersToClass, "", id)
 		quadManager.addQuad(currentOp, -1, expressionValue, address)
 
 def p_np_vars_6(p):
@@ -768,9 +825,9 @@ def p_np_assignment_1(p):
 	frontObjectAccessed = "" # There is no frontObjectAccessed since there is no expression like: ID.ID or this.ID.ID
 	currentVarId = p[-1]
 	checkIfVariableWasDefined(currentVarId)
-	quadManager.pushOper(getVarAddress(frontObjectAccessed, currentVarId))
-	quadManager.pushType(getVarType(frontObjectAccessed, currentVarId))
-	stackDimSizes.push(getVarDims(frontObjectAccessed, currentVarId))
+	quadManager.pushOper(getVarAddress(refersToClass, frontObjectAccessed, currentVarId))
+	quadManager.pushType(getVarType(refersToClass, frontObjectAccessed, currentVarId))
+	stackDimSizes.push(getVarDims(refersToClass, frontObjectAccessed, currentVarId))
 
 def p_np_assignment_2(p):
 	'''np_assignment_2	:'''
@@ -798,9 +855,9 @@ def p_np_assignment_4(p):
 	currentVarId = p[-1] # This is the second ID in an expression like the following: ID.ID or this.ID.ID
 	checkIfVariableWasDefined(frontObjectAccessed)
 	checkIfObjectHasAttribute(frontObjectAccessed, currentVarId, p)
-	quadManager.pushOper(getVarAddress(frontObjectAccessed, currentVarId))
-	quadManager.pushType(getVarType(frontObjectAccessed, currentVarId))
-	stackDimSizes.push(getVarDims(frontObjectAccessed, currentVarId))
+	quadManager.pushOper(getVarAddress(refersToClass, frontObjectAccessed, currentVarId))
+	quadManager.pushType(getVarType(refersToClass, frontObjectAccessed, currentVarId))
+	stackDimSizes.push(getVarDims(refersToClass, frontObjectAccessed, currentVarId))
 
 
 #THIS
@@ -1163,45 +1220,62 @@ def p_np_func_call_2(p):
 
 def p_np_func_call_3(p):
 	'''np_func_call_3	:'''
-	funcName = stackFunctionCalls.pop()
+	refersToClass, callingObject, funcName = stackFunctionCalls.pop()
 	currentParamsToBeSend = stackParamsToBeSend.top()
 	currentParamsTypesToBeSend = stackParamsTypesToBeSend.top()
 	localParamDimsX = stackParamsDimsX.top()
 	localParamDimsY = stackParamsDimsY.top()
-	if funcDirTable.has(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY)):
-		funcDirRow = funcDirTable.getFuncDirRow(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY))
-		funcStartPos = funcDirRow.startPos
-		funcType = funcDirRow.blockType
 
-		for index in range(len(currentParamsToBeSend)):
-			# If the type of the parameter is an object or if it is a vector or matrix, then we know we have
-			# to load the parameter as a reference.
-			address = currentParamsToBeSend[index]
-			if localParamDimsY[index] != -1:
-				for _ in range(localParamDimsX[index]):
-					for _ in range(localParamDimsY[index]):
-						quadManager.addQuad(operToCode.get("PARAM_REF"), -1, -1, address)
-						address = address + 1
-			elif localParamDimsX[index] != -1:
-				for _ in range(localParamDimsX[index]):
+	# Checks if the function is being called from an object.
+	if callingObject != "":
+		callingObjectClass = getVarType(refersToClass, "", callingObject) # Gets the class of the calling object.
+		classFuncDirTable = classDirTable[callingObjectClass] # Gets the FuncDirTable of the class of the calling object.
+		# Validates that the function exists in the class of the calling object.
+		if classFuncDirTable.has(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY)) == False:
+			print("Error: '%s' does not contain the function '%s' with the arguments passed in line %d." % (callingObject, funcName, p.lexer.lineno))
+			sys.exit(0)
+		classVarTable = classFuncDirTable.getVarTable(callingObjectClass, None, None, None)
+		objVarTable = getAttrVarTable(refersToClass, callingObject)
+		mapObjAttrToClassAttr(objVarTable, classVarTable)
+		funcDirRow = classFuncDirTable.getFuncDirRow(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY))
+	
+	else:
+		if funcDirTable.has(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY)) == False:
+			print("Error: Function '%s' with the arguments used in line %d was not defined." % (funcName, p.lexer.lineno))
+			sys.exit(0)
+		funcDirRow = funcDirTable.getFuncDirRow(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY))
+	
+	funcStartPos = funcDirRow.startPos
+	funcType = funcDirRow.blockType
+
+	for index in range(len(currentParamsToBeSend)):
+		# If the type of the parameter is an object or if it is a vector or matrix, then we know we have
+		# to load the parameter as a reference.
+		address = currentParamsToBeSend[index]
+		if localParamDimsY[index] != -1:
+			for _ in range(localParamDimsX[index]):
+				for _ in range(localParamDimsY[index]):
 					quadManager.addQuad(operToCode.get("PARAM_REF"), -1, -1, address)
 					address = address + 1
-			elif currentParamsTypesToBeSend[index] == typeToCode.get("object"):
+		elif localParamDimsX[index] != -1:
+			for _ in range(localParamDimsX[index]):
 				quadManager.addQuad(operToCode.get("PARAM_REF"), -1, -1, address)
-			else:
-				quadManager.addQuad(operToCode.get("PARAM"), -1, -1, address)
+				address = address + 1
+		# TODO: Implement passing of objects as references.
+		elif currentParamsTypesToBeSend[index] == typeToCode.get("object"):
+			quadManager.addQuad(operToCode.get("PARAM_REF"), -1, -1, address)
+		else:
+			quadManager.addQuad(operToCode.get("PARAM"), -1, -1, address)
+	
+	quadManager.addQuad(operToCode.get("GOSUB"), -1, -1, funcStartPos)
+	# TODO: Add error message for checking if you called a void function in an expression.
+	if funcType != typeToCode.get("void"):
+		returnAddress = getNextAddress(funcType, "temp", 1, 1)
+		quadManager.addQuad(operToCode.get("="), -1, CONST_RETURN, returnAddress)
+		quadManager.pushOper(returnAddress)
+		quadManager.pushType(funcType)
+		stackDimSizes.push((-1, -1))
 		
-		quadManager.addQuad(operToCode.get("GOSUB"), -1, -1, funcStartPos)
-		# TODO: Add error message for checking if you called a void function in an expression.
-		if funcType != typeToCode.get("void"):
-			returnAddress = getNextAddress(funcType, "temp", 1, 1)
-			quadManager.addQuad(operToCode.get("="), -1, CONST_RETURN, returnAddress)
-			quadManager.pushOper(returnAddress)
-			quadManager.pushType(funcType)
-			stackDimSizes.push((-1, -1))
-	else:
-		print("Error: Function '%s' with the arguments used in line %d was not defined." % (funcName, p.lexer.lineno))
-		sys.exit(0)
 
 def p_np_func_call_4(p):
 	'''np_func_call_4	:'''
@@ -1232,14 +1306,23 @@ def p_statement(p):
 								| var_decl'''
 
 def p_statement_function(p):
-	'''statement_function	: '.' ID func_call
+	'''statement_function	: '.' ID np_statement_2 func_call
 												| np_statement_1 func_call'''
 
 #NEURAL POINTS FOR STATEMENT
 def p_np_statement_1(p):
 	'''np_statement_1	:'''
 	global stackFunctionCalls
-	stackFunctionCalls.push(p[-1])
+	funcName = p[-1]
+	callingObjName = ""
+	stackFunctionCalls.push((refersToClass, callingObjName, funcName))
+
+def p_np_statement_2(p):
+	'''np_statement_2	:'''
+	global stackFunctionCalls
+	funcName = p[-1]
+	callingObjName = p[-3]
+	stackFunctionCalls.push((refersToClass, callingObjName, funcName))
 
 #CONDITION
 def p_condition(p):
@@ -1300,6 +1383,7 @@ def p_loop(p):
 					| while_loop'''
 
 #FOR_LOOP
+#TODO: Check if we need to modify syntax to allow 'this'. Check for special cases here.
 def p_for_loop(p):
 	'''for_loop	: FOR '(' assignment np_for_loop_1 expression np_for_loop_2 ';' ID '=' expression np_for_loop_3 ')' block np_for_loop_4'''
 
@@ -1332,8 +1416,8 @@ def p_np_for_loop_3(p):
 	expressionType = quadManager.popType()
 	stackDimSizes.pop()
 	forVarId = p[-3] # p[-3] is ID of variable to be assigned to.
-	forVarIdAddress = getVarAddress("", forVarId)
-	forVarIdTypePrimType = getVarType("", p[-3])
+	forVarIdAddress = getVarAddress(refersToClass, "", forVarId)
+	forVarIdTypePrimType = getVarType(refersToClass, "", p[-3])
 	if semanticCube.checkType(operToCode.get("="), expressionType, forVarIdTypePrimType) == typeToCode.get("error"):
 		print("Error: Type mismatch in line %d" % (p.lexer.lineno))
 		sys.exit(0)
@@ -1408,9 +1492,9 @@ def p_np_in_out_2(p):
 	frontObjectAccessed = ""
 	currentVarId = p[-1]
 	checkIfVariableWasDefined(currentVarId)
-	quadManager.pushOper(getVarAddress(frontObjectAccessed, currentVarId))
-	quadManager.pushType(getVarType(frontObjectAccessed, currentVarId))
-	stackDimSizes.push(getVarDims(frontObjectAccessed, currentVarId))
+	quadManager.pushOper(getVarAddress(refersToClass, frontObjectAccessed, currentVarId))
+	quadManager.pushType(getVarType(refersToClass, frontObjectAccessed, currentVarId))
+	stackDimSizes.push(getVarDims(refersToClass, frontObjectAccessed, currentVarId))
 
 def p_np_in_out_3(p):
 	'''np_in_out_3	:'''
@@ -1438,9 +1522,9 @@ def p_np_in_out_5(p):
 	currentVarId = p[-1]
 	checkIfVariableWasDefined(frontObjectAccessed)
 	checkIfObjectHasAttribute(frontObjectAccessed, currentVarId, p)
-	quadManager.pushOper(getVarAddress(frontObjectAccessed, currentVarId))
-	quadManager.pushType(getVarType(frontObjectAccessed, currentVarId))
-	stackDimSizes.push(getVarDims(frontObjectAccessed, currentVarId))
+	quadManager.pushOper(getVarAddress(refersToClass, frontObjectAccessed, currentVarId))
+	quadManager.pushType(getVarType(refersToClass, frontObjectAccessed, currentVarId))
+	stackDimSizes.push(getVarDims(refersToClass, frontObjectAccessed, currentVarId))
 
 #RETURN
 def p_return(p):
@@ -1637,7 +1721,7 @@ def p_fact_id(p):
 							| '.' ID fact_id_2'''
 
 def p_fact_id_2(p):
-	'''fact_id_2	: func_call
+	'''fact_id_2	: np_factor_11 func_call
 								| np_factor_10 mat_vec_access'''
 
 #NEURAL POINTS FOR FACTOR
@@ -1686,14 +1770,16 @@ def p_np_factor_8(p):
 	frontObjectAccessed = ""
 	currentVarId = p[-1]
 	checkIfVariableWasDefined(currentVarId)
-	quadManager.pushOper(getVarAddress(frontObjectAccessed, currentVarId))
-	quadManager.pushType(getVarType(frontObjectAccessed, currentVarId))
-	stackDimSizes.push(getVarDims(frontObjectAccessed, currentVarId))
+	quadManager.pushOper(getVarAddress(refersToClass, frontObjectAccessed, currentVarId))
+	quadManager.pushType(getVarType(refersToClass, frontObjectAccessed, currentVarId))
+	stackDimSizes.push(getVarDims(refersToClass, frontObjectAccessed, currentVarId))
 
 def p_np_factor_9(p):
 	'''np_factor_9	:'''
 	global stackFunctionCalls
-	stackFunctionCalls.push(p[-1])
+	funcName = p[-1]
+	callingObject = ""
+	stackFunctionCalls.push((refersToClass, callingObject, funcName))
 
 def p_np_factor_10(p):
 	'''np_factor_10	:'''
@@ -1702,9 +1788,16 @@ def p_np_factor_10(p):
 	currentVarId = p[-1]
 	checkIfVariableWasDefined(frontObjectAccessed)
 	checkIfObjectHasAttribute(frontObjectAccessed, currentVarId, p)
-	quadManager.pushOper(getVarAddress(frontObjectAccessed, currentVarId))
-	quadManager.pushType(getVarType(frontObjectAccessed, currentVarId))
-	stackDimSizes.push(getVarDims(frontObjectAccessed, currentVarId))
+	quadManager.pushOper(getVarAddress(refersToClass, frontObjectAccessed, currentVarId))
+	quadManager.pushType(getVarType(refersToClass, frontObjectAccessed, currentVarId))
+	stackDimSizes.push(getVarDims(refersToClass, frontObjectAccessed, currentVarId))
+
+def p_np_factor_11(p):
+	'''np_factor_11	:'''
+	global stackFunctionCalls
+	funcName = p[-1]
+	callingObject = p[-3]
+	stackFunctionCalls.push((refersToClass, callingObject, funcName))
 
 #ERROR
 def p_error(p):

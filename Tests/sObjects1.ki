@@ -1,11 +1,17 @@
 class Object {
   public var num1, num2 : int;
+
+  public_func void setNum1(num1 : int) {
+    this.num1 = num1;
+  }
 }
 
 Main {
   public_func independent void main() {
-    var obj : Object;
-    scan(obj.num1);
-    print(obj.num1);
+    var obj1, obj2 : Object;
+    call obj1.setNum1(1);
+    call obj2.setNum1(2);
+    print(obj1.num1);
+    print(obj2.num1);
   }
 }
