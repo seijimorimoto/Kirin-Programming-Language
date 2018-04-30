@@ -72,6 +72,7 @@ refersToClass = False
 decisionsPerLevel = [0]
 decisionLevel = 0
 ctDic = {}
+frontObjectAccessed = "" # It is the identifier of the first object in an expression like: first_object.attr
 
 # Returns the next available address (according to the parameters received) to assign it to a variable.
 # Parameters:
@@ -238,41 +239,159 @@ def checkIfClassExists(className, p):
 		print("Error: Cannot create object in line %d since class '%s' was not defined." % (p.lexer.lineno, currentType))
 		sys.exit(0)
 
-def getVarAddress(id):
-	if refersToClass == True or currentMethod == '':
+# Checks if an object (its class) has a given attribute. It is assumed that the existence of the object received in this function
+# was previously validated by calling checkIfVariableWasDefined() with the parameter objId.
+# Parameters:
+# - objId: Name of the object that is going to be checked.
+# - attrId: Name of the attribute whose existence will be checked inside the object with name given by objId.
+# - p: Yacc variable used for displaying "line number" information in case of errors. 
+def checkIfObjectHasAttribute(objId, attrId, p):
+	# If 'objId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
+	if refersToClass == True:
 		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
-		return varTable.get(id).address
+		objVarTableRow = varTable.get(objId) # Obtains the row that contains the information of the object.
+		attributesTable = objVarTableRow.objVarTable # Obtains the VarTable containing the information of all the attributes of the object.
+		# Checks if the attribute 'attrId' is present in the attributesTable.
+		if attributesTable.has(attrId) == False:
+			print("Error: '%s' in line %d does not have attribute '%s'." % (objId, p.lexer.lineno, attrId))
+			sys.exit(0)
+	
 	else:
 		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
-		if varTable.has(id):
-			return varTable.get(id).address
-		else:
+		# If the VarTable of the current method does not contain the object with id 'objId', then we know the object is a global
+		# variable and we must find its information in the VarTable of the current class. 
+		if varTable.has(objId) == False:
 			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
-			return varTable.get(id).address
+		objVarTableRow = varTable.get(objId) # Obtains the row that contains the information of the object.
+		attributesTable = objVarTableRow.objVarTable  # Obtains the VarTable containing the information of all the attributes of the object.
+		# Checks if the attribute 'attrId' is present in the attributesTable.
+		if attributesTable.has(attrId) == False:
+			print("Error: '%s' in line %d does not have attribute '%s'." % (objId, p.lexer.lineno, attrId))
+			sys.exit(0)
+	
 
-def getVarType(id):
-	if refersToClass == True or currentMethod == '':
-		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
-		return varTable.get(id).varType
-	else:
-		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
-		if varTable.has(id):
-			return varTable.get(id).varType
-		else:
+# Returns the memory address that corresponds to a given variable. It is assumed that the existence of the variable and the object
+# (if the variable is inside it) was previously validated by calling checkIfVariableWasDefined() or checkIfObjectHasAttribute(). 
+# Parameters:
+# - objId: Name of the object that contains the variable whose address is desired. It is "" if the variable is not inside an object.
+# - varId: Name of the variable (or attribute, if inside an object) whose address is desired.
+def getVarAddress(objId, varId):
+	# If 'objId' is "", we know 'varId' is a simple variable and not an attribute of an object.
+	if objId == "":
+		# If 'varId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
+		if refersToClass == True:
 			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
-			return varTable.get(id).varType
+			return varTable.get(varId).address
+		else:
+			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+			# If the VarTable of the current method does not contain the variable with id 'varId', then we know it is a global
+			# variable and we must find its information in the VarTable of the current class. 
+			if varTable.has(varId):
+				return varTable.get(varId).address
+			else:
+				varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+				return varTable.get(varId).address
+	
+	# From here on, we know 'varId' is an attribute of an object.
+	else:
+		# If 'objId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
+		if refersToClass == True:
+			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+			objVarTableRow = varTable.get(objId) # Obtains the row that contains the information of the object.
+			attributesTable = objVarTableRow.objVarTable # Obtains the VarTable containing the information of all the attributes of the object.
+			return attributesTable.get(varId).address
+		else:
+			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+			# If the VarTable of the current method does not contain the object with id 'objId', then we know the object is a global
+			# variable and we must find its information in the VarTable of the current class. 
+			if varTable.has(objId) == False:
+				varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+			objVarTableRow = varTable.get(objId)  # Obtains the row that contains the information of the object.
+			attributesTable = objVarTableRow.objVarTable # Obtains the VarTable containing the information of all the attributes of the object.
+			return attributesTable.get(varId).address
 
-def getVarDims(id):
-	if refersToClass == True or currentMethod == '':
-		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
-		return (varTable.get(id).dimX, varTable.get(id).dimY)
-	else:
-		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
-		if varTable.has(id):
-			return (varTable.get(id).dimX, varTable.get(id).dimY)
-		else:
+
+# Returns the type that corresponds to a given variable. It is assumed that the existence of the variable and the object
+# (if the variable is inside it) was previously validated by calling checkIfVariableWasDefined() or checkIfObjectHasAttribute(). 
+# Parameters:
+# - objId: Name of the object that contains the variable whose type is desired. It is "" if the variable is not inside an object.
+# - varId: Name of the variable (or attribute, if inside an object) whose type is desired.
+def getVarType(objId, varId):
+	# If 'objId' is "", we know 'varId' is a simple variable and not an attribute of an object.
+	if objId == "":
+		# If 'varId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
+		if refersToClass == True:
 			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
-			return (varTable.get(id).dimX, varTable.get(id).dimY)
+			return varTable.get(varId).varType
+		else:
+			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+			# If the VarTable of the current method does not contain the variable with id 'varId', then we know it is a global
+			# variable and we must find its information in the VarTable of the current class. 
+			if varTable.has(varId):
+				return varTable.get(varId).varType
+			else:
+				varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+				return varTable.get(varId).varType
+	
+	# From here on, we know 'varId' is an attribute of an object.
+	else:
+		# If 'objId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
+		if refersToClass == True:
+			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+			objVarTableRow = varTable.get(objId) # Obtains the row that contains the information of the object.
+			attributesTable = objVarTableRow.objVarTable # Obtains the VarTable containing the information of all the attributes of the object.
+			return attributesTable.get(varId).varType
+		else:
+			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+			# If the VarTable of the current method does not contain the object with id 'objId', then we know the object is a global
+			# variable and we must find its information in the VarTable of the current class. 
+			if varTable.has(objId) == False:
+				varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+			objVarTableRow = varTable.get(objId)  # Obtains the row that contains the information of the object.
+			attributesTable = objVarTableRow.objVarTable # Obtains the VarTable containing the information of all the attributes of the object.
+			return attributesTable.get(varId).varType
+
+
+# Returns a tuple with the dimensions (x, y) corresponding to a given variable. It is assumed that the existence of the variable and the
+# object (if the variable is inside it) was previously validated by calling checkIfVariableWasDefined() or checkIfObjectHasAttribute(). 
+# Parameters:
+# - objId: Name of the object that contains the variable whose dimensions are desired. It is "" if the variable is not inside an object.
+# - varId: Name of the variable (or attribute, if inside an object) whose dimensions are desired.
+def getVarDims(objId, varId):
+	# If 'objId' is "", we know 'varId' is a simple variable and not an attribute of an object.
+	if objId == "":
+		# If 'varId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
+		if refersToClass == True:
+			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+			return (varTable.get(varId).dimX, varTable.get(varId).dimY)
+		else:
+			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+			# If the VarTable of the current method does not contain the variable with id 'varId', then we know it is a global
+			# variable and we must find its information in the VarTable of the current class. 
+			if varTable.has(varId):
+				return (varTable.get(varId).dimX, varTable.get(varId).dimY)
+			else:
+				varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+				return (varTable.get(varId).dimX, varTable.get(varId).dimY)
+	
+	# From here on, we know 'varId' is an attribute of an object.
+	else:
+		# If 'objId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
+		if refersToClass == True:
+			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+			objVarTableRow = varTable.get(objId) # Obtains the row that contains the information of the object.
+			attributesTable = objVarTableRow.objVarTable # Obtains the VarTable containing the information of all the attributes of the object.
+			return (attributesTable.get(varId).dimX, attributesTable.get(varId).dimY)
+		else:
+			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+			# If the VarTable of the current method does not contain the object with id 'objId', then we know the object is a global
+			# variable and we must find its information in the VarTable of the current class. 
+			if varTable.has(objId) == False:
+				varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+			objVarTableRow = varTable.get(objId)  # Obtains the row that contains the information of the object.
+			attributesTable = objVarTableRow.objVarTable # Obtains the VarTable containing the information of all the attributes of the object.
+			return (attributesTable.get(varId).dimX, attributesTable.get(varId).dimY)
+
 
 def getNewObjVarTable(varType, scope):
 	# If the varType represents an object, obtains the varTable of the class of the object, creates a modified copy
@@ -282,7 +401,7 @@ def getNewObjVarTable(varType, scope):
 		classVarTable = classDirTable[varType].getVarTable(varType, None, None, None)
 		copyVarTable = VarTable()
 		# Iterates over each varTableRow in the varTable of the class... 
-		for classVarId, classVarTableRow in classVarTable.table:
+		for classVarId, classVarTableRow in classVarTable.table.items():
 			classAttrType = classVarTableRow.varType
 			classAttrIsIndependent = classVarTableRow.isIndependent
 			classAttrIsPrivate = classVarTableRow.isPrivate
@@ -298,7 +417,7 @@ def getNewObjVarTable(varType, scope):
 				innerObjVarTable = None
 			# Creates copy of the original varTableRow, but with the new address.
 			copyVarTableRow = VarTableRow(classAttrType, classAttrIsIndependent, classAttrIsPrivate, newAddress, classAttrDimX, classAttrDimY, innerObjVarTable)
-			copyVarTable.add(classVarId)
+			copyVarTable.add(classVarId, copyVarTableRow)
 		return copyVarTable
 	else:
 		return None
@@ -553,7 +672,7 @@ def p_np_vars_5(p):
 		print("Error: Type mismatch in line %d" % (p.lexer.lineno))
 		sys.exit(0)
 	for id in currentVarIds:
-		address = getVarAddress(id)
+		address = getVarAddress("", id)
 		quadManager.addQuad(currentOp, -1, expressionValue, address)
 
 def p_np_vars_6(p):
@@ -630,11 +749,11 @@ def p_np_matrix_2(p):
 
 #ASSIGNMENT
 def p_assignment(p):
-	'''assignment	: this_id np_assignment_1 assg_access '=' np_assignment_2 assg_value ';' '''
+	'''assignment	: this_id assg_access '=' np_assignment_2 assg_value ';' '''
 
 def p_assg_access(p):
-	'''assg_access	:	mat_vec_access
-									|	'.' ID mat_vec_access'''
+	'''assg_access	:	np_assignment_1 mat_vec_access
+									|	'.' ID np_assignment_4 mat_vec_access'''
 
 def p_assg_value(p):
 	'''assg_value	: create_obj
@@ -645,12 +764,13 @@ def p_assg_value(p):
 #NEURAL POINTS FOR ASSIGNMENT
 def p_np_assignment_1(p):
 	'''np_assignment_1	:'''
-	global currentVarId
+	global currentVarId, frontObjectAccessed
+	frontObjectAccessed = "" # There is no frontObjectAccessed since there is no expression like: ID.ID or this.ID.ID
 	currentVarId = p[-1]
 	checkIfVariableWasDefined(currentVarId)
-	quadManager.pushOper(getVarAddress(currentVarId))
-	quadManager.pushType(getVarType(currentVarId))
-	stackDimSizes.push(getVarDims(currentVarId))
+	quadManager.pushOper(getVarAddress(frontObjectAccessed, currentVarId))
+	quadManager.pushType(getVarType(frontObjectAccessed, currentVarId))
+	stackDimSizes.push(getVarDims(frontObjectAccessed, currentVarId))
 
 def p_np_assignment_2(p):
 	'''np_assignment_2	:'''
@@ -670,6 +790,18 @@ def p_np_assignment_3(p):
 		print("Error: Type mismatch in line %d." % (p.lexer.lineno))
 		sys.exit(0)
 	quadManager.addQuad(currentOp, -1, expressionValue, assignedVar)
+
+def p_np_assignment_4(p):
+	'''np_assignment_4	:'''
+	global currentVarId, frontObjectAccessed
+	frontObjectAccessed = p[-3] # This is the first ID in an expression like the following: ID.ID or this.ID.ID
+	currentVarId = p[-1] # This is the second ID in an expression like the following: ID.ID or this.ID.ID
+	checkIfVariableWasDefined(frontObjectAccessed)
+	checkIfObjectHasAttribute(frontObjectAccessed, currentVarId, p)
+	quadManager.pushOper(getVarAddress(frontObjectAccessed, currentVarId))
+	quadManager.pushType(getVarType(frontObjectAccessed, currentVarId))
+	stackDimSizes.push(getVarDims(frontObjectAccessed, currentVarId))
+
 
 #THIS
 def p_this(p):
@@ -730,26 +862,31 @@ def p_mat_access(p):
 def p_np_mat_vec_access_1(p):
 	'''np_mat_vec_access_1	:'''
 	# At this point, the top of the stackDimSizes contains the dims of the current vector/matrix being accessed.
-	id = quadManager.popOper()
+	operAddress = quadManager.popOper()
 	dimX, dimY = stackDimSizes.top()
 
+	if frontObjectAccessed == "":
+		operName = currentVarId
+	else:
+		operName = frontObjectAccessed + "." + currentVarId
+
 	if dimX == -1:
-		print("Error: '%s' at line %d is not a variable of the proper dimension." % (currentVarId, p.lexer.lineno))
+		print("Error: '%s' at line %d is not a variable of the proper dimension." % (operName, p.lexer.lineno))
 		sys.exit(0)
 	
-	quadManager.pushDim(id, 1) # We are in the first dimension of the variable 'id'.
+	quadManager.pushDim((operName, operAddress), 1) # We are in the first dimension of the variable 'id'.
 	quadManager.pushOp(operToCode.get("(")) # Push a false bottom operator.
 
 def p_np_mat_vec_access_2(p):
 	'''np_mat_vec_access_2	:'''
 	global ctDic
-	id, dim = quadManager.topDim()
+	_ , numOfDim = quadManager.topDim()
 	stackDimSizes.pop() # Eliminate the top element in the stack, which is the dims of the last expression.
 	dims = stackDimSizes.top()
 
-	quadManager.addQuad(operToCode.get("VER"), quadManager.topOper(), -1, dims[dim - 1])
+	quadManager.addQuad(operToCode.get("VER"), quadManager.topOper(), -1, dims[numOfDim - 1])
 	# If the current dim is not the last one...
-	if dim < len(dims) and dims[dim] != -1:
+	if numOfDim < len(dims) and dims[numOfDim] != -1:
 		aux = quadManager.popOper()
 		dimY = dims[1]
 		tempAddress = getNextAddress(typeToCode.get("int"), "temp", 1, 1)
@@ -767,7 +904,7 @@ def p_np_mat_vec_access_2(p):
 		quadManager.addQuad(operToCode.get("*"), aux, constDimAddress, tempAddress)
 		quadManager.pushOper(tempAddress)
 
-	if dim > 1:
+	if numOfDim > 1:
 		aux2 = quadManager.popOper()
 		aux = quadManager.popOper()
 		tempAddress = getNextAddress(typeToCode.get("int"), "temp", 1, 1)
@@ -777,26 +914,28 @@ def p_np_mat_vec_access_2(p):
 def p_np_mat_vec_access_3(p):
 	'''np_mat_vec_access_3	:'''
 	# At this point, the top of the stackDimSizes contains the dims of the current vector/matrix being accessed.
-	id, dim = quadManager.popDim()
+	(matVecName, idBase), numOfDim = quadManager.popDim()
 	dimX, dimY = stackDimSizes.top()
 	if dimY == -1:
-		# TODO: Update error message to use a variable id instead of address. Note that we cannot use currentVarId. 
-		print("Error: '%s' at line %d is not a variable of the proper dimension." % (id, p.lexer.lineno))
+		# TODO: Update error message to use a variable id instead of address. Note that we cannot use currentVarId.
+		# TODO: Mark this as solved if it is correct.
+		print("Error: '%s' at line %d is not a variable of the proper dimension." % (matVecName, p.lexer.lineno))
 		sys.exit(0)
 	
 	# Adds 1 to the dimension that was at the top of the stack of dimensions.
-	quadManager.pushDim(id, dim + 1)
+	quadManager.pushDim((matVecName, idBase), numOfDim + 1)
 
 def p_np_mat_vec_access_4(p):
 	'''np_mat_vec_access_4	:'''
 	global ctDic
 	# At this point, the top of the stackDimSizes contains the dims of the current vector/matrix being accessed.
 	aux = quadManager.popOper()
-	idBase, dim = quadManager.topDim()
+	(matVecName, idBase), numOfDim = quadManager.topDim()
 	dimX, dimY = stackDimSizes.top()
-	if dim == 1 and dimY != -1:
+	if numOfDim == 1 and dimY != -1:
 		# TODO: Update error message to use a variable id instead of address. Note that we cannot use currentVarId. 
-		print("Error: '%s' at line %d is not a variable of the proper dimension." % (idBase, p.lexer.lineno))
+		# TODO: Mark this as solved if it is correct.
+		print("Error: '%s' at line %d is not a variable of the proper dimension." % (matVecName, p.lexer.lineno))
 		sys.exit(0)
 
 	# Stores the base id of the vector/matrix in a constant address, so that we can add it
@@ -1193,8 +1332,8 @@ def p_np_for_loop_3(p):
 	expressionType = quadManager.popType()
 	stackDimSizes.pop()
 	forVarId = p[-3] # p[-3] is ID of variable to be assigned to.
-	forVarIdAddress = getVarAddress(forVarId)
-	forVarIdTypePrimType = getVarType(p[-3])
+	forVarIdAddress = getVarAddress("", forVarId)
+	forVarIdTypePrimType = getVarType("", p[-3])
 	if semanticCube.checkType(operToCode.get("="), expressionType, forVarIdTypePrimType) == typeToCode.get("error"):
 		print("Error: Type mismatch in line %d" % (p.lexer.lineno))
 		sys.exit(0)
@@ -1251,7 +1390,7 @@ def p_print_more(p):
 								| empty'''
 
 def p_scan_obj(p):
-	'''scan_obj	: '.' ID
+	'''scan_obj	: '.' ID np_in_out_5
 							| np_in_out_2'''
 
 #NEURAL POINTS FOR IN_OUT
@@ -1265,10 +1404,13 @@ def p_np_in_out_1(p):
 
 def p_np_in_out_2(p):
 	'''np_in_out_2	:'''
-	global currentVarId
+	global currentVarId, frontObjectAccessed
+	frontObjectAccessed = ""
 	currentVarId = p[-1]
-	quadManager.pushOper(getVarAddress(currentVarId))
-	stackDimSizes.push(getVarDims(currentVarId))
+	checkIfVariableWasDefined(currentVarId)
+	quadManager.pushOper(getVarAddress(frontObjectAccessed, currentVarId))
+	quadManager.pushType(getVarType(frontObjectAccessed, currentVarId))
+	stackDimSizes.push(getVarDims(frontObjectAccessed, currentVarId))
 
 def p_np_in_out_3(p):
 	'''np_in_out_3	:'''
@@ -1283,11 +1425,22 @@ def p_np_in_out_4(p):
 	quadManager.addQuad(operator, 0, -1, address)
 	# TODO: Update this if we want to be able to scan a complete vector/matrix.
 	if dimY != -1:
-		print("Error: Cannot use 'scan' to a matrix on line %d. Must use scan with primitive types" % (p.lexer.lineno))
+		print("Error: Cannot use 'scan' on a matrix on line %d. Must use scan with primitive types" % (p.lexer.lineno))
 		sys.exit(0)
 	if dimX != - 1:
-		print("Error: Cannot use 'scan' to a vector on line %d. Must use scan with primitive types" % (p.lexer.lineno))
+		print("Error: Cannot use 'scan' on a vector on line %d. Must use scan with primitive types" % (p.lexer.lineno))
 		sys.exit(0)
+
+def p_np_in_out_5(p):
+	'''np_in_out_5	:'''
+	global currentVarId, frontObjectAccessed
+	frontObjectAccessed = p[-3]
+	currentVarId = p[-1]
+	checkIfVariableWasDefined(frontObjectAccessed)
+	checkIfObjectHasAttribute(frontObjectAccessed, currentVarId, p)
+	quadManager.pushOper(getVarAddress(frontObjectAccessed, currentVarId))
+	quadManager.pushType(getVarType(frontObjectAccessed, currentVarId))
+	stackDimSizes.push(getVarDims(frontObjectAccessed, currentVarId))
 
 #RETURN
 def p_return(p):
@@ -1476,7 +1629,7 @@ def p_fact_neg(p):
 def p_fact_body(p):
 	'''fact_body	: '(' np_factor_4 expression ')' np_factor_5
 								| var_cte np_factor_6
-								| this_id np_factor_1 fact_id'''
+								| this_id fact_id'''
 
 def p_fact_id(p):
 	'''fact_id	: np_factor_9 func_call
@@ -1485,14 +1638,9 @@ def p_fact_id(p):
 
 def p_fact_id_2(p):
 	'''fact_id_2	: func_call
-								| mat_vec_access'''
+								| np_factor_10 mat_vec_access'''
 
 #NEURAL POINTS FOR FACTOR
-def p_np_factor_1(p):
-	'''np_factor_1	:'''
-	global currentVarId
-	currentVarId = p[-1]
-
 def p_np_factor_2(p):
 	'''np_factor_2	:'''
 	quadManager.pushOp('UMINUS')
@@ -1534,16 +1682,29 @@ def p_np_factor_7(p):
 
 def p_np_factor_8(p):
 	'''np_factor_8	:'''
+	global currentVarId, frontObjectAccessed
+	frontObjectAccessed = ""
+	currentVarId = p[-1]
 	checkIfVariableWasDefined(currentVarId)
-	quadManager.pushOper(getVarAddress(currentVarId))
-	primType = getVarType(currentVarId)
-	quadManager.pushType(primType)
-	stackDimSizes.push(getVarDims(currentVarId))
+	quadManager.pushOper(getVarAddress(frontObjectAccessed, currentVarId))
+	quadManager.pushType(getVarType(frontObjectAccessed, currentVarId))
+	stackDimSizes.push(getVarDims(frontObjectAccessed, currentVarId))
 
 def p_np_factor_9(p):
 	'''np_factor_9	:'''
 	global stackFunctionCalls
-	stackFunctionCalls.push(p[-2])
+	stackFunctionCalls.push(p[-1])
+
+def p_np_factor_10(p):
+	'''np_factor_10	:'''
+	global currentVarId, frontObjectAccessed
+	frontObjectAccessed = p[-3]
+	currentVarId = p[-1]
+	checkIfVariableWasDefined(frontObjectAccessed)
+	checkIfObjectHasAttribute(frontObjectAccessed, currentVarId, p)
+	quadManager.pushOper(getVarAddress(frontObjectAccessed, currentVarId))
+	quadManager.pushType(getVarType(frontObjectAccessed, currentVarId))
+	stackDimSizes.push(getVarDims(frontObjectAccessed, currentVarId))
 
 #ERROR
 def p_error(p):

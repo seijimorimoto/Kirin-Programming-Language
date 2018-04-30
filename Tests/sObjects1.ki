@@ -1,0 +1,11 @@
+class Object {
+  public var num1, num2 : int;
+}
+
+Main {
+  public_func independent void main() {
+    var obj : Object;
+    scan(obj.num1);
+    print(obj.num1);
+  }
+}
