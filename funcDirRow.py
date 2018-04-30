@@ -8,10 +8,11 @@ from kirinMappers import codeToType
 
 class FuncDirRow(object):
 
-	def __init__(self, blockType, isIndependent, isPrivate, startPos):
+	def __init__(self, blockType, isIndependent, isPrivate, isInherited, startPos):
 		self.blockType = blockType
 		self.isIndependent = isIndependent
 		self.isPrivate = isPrivate
+		self.isInherited = isInherited
 		self.startPos = startPos
 		self.varTable = VarTable()
 

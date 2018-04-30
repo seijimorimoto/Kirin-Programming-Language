@@ -552,11 +552,18 @@ def addInfoFromParentToChildClass(parentClass, childClass):
 	for parentClassVarId, parentClassVarTableRow in parentClassVarTable.table.items():
 		childClassVarTable.add(parentClassVarId, parentClassVarTableRow)
 	
-	# Iterates over all the elements in the FuncDirTable of the parent class and adds them to the
-	# FuncDirTable of the childClass, as long as the element being added is not a constructor.
+	# Iterates over all the elements (key and FuncDirRows) in the FuncDirTable of the parent class,
+	# creates a copy of each FuncDirRow (but with the attributed isInherited always set to True) and adds them
+	# to the childClassFuncDirTable.
 	for (blockId, blockParams, blockDimsX, blockDimsY), parentFuncDirRow in parentClassFuncDirTable.table.items():
 		if blockId != "constructor":
-			childClassFuncDirTable.add(blockId, blockParams, blockDimsX, blockDimsY, parentFuncDirRow)
+			funcType = parentFuncDirRow.blockType
+			isIndependent = parentFuncDirRow.isIndependent
+			isPrivate = parentFuncDirRow.isPrivate
+			startPos = parentFuncDirRow.startPos
+			isInherited = True
+			newChildFuncDirRow = FuncDirRow(funcType, isIndependent, isPrivate, isInherited, startPos)
+			childClassFuncDirTable.add(blockId, blockParams, blockDimsX, blockDimsY, newChildFuncDirRow)
 
 
 def generateQuadForBinaryOperator(operatorList):
@@ -632,7 +639,7 @@ def p_np_program_1(p):
 		print("Error: Class '%s' redefined in line %d" % (currentClass, p.lexer.lineno))
 		sys.exit(0)
 	classDirTable[currentClass] = FuncDirTable()
-	funcDirRow = FuncDirRow("class", False, False, quadManager.quadCont)
+	funcDirRow = FuncDirRow("class", False, False, False, quadManager.quadCont)
 	classDirTable[currentClass].add(currentClass, None, None, None, funcDirRow)
 	# Assigns the function directory of the current class to the global variable funcDirTable.
 	funcDirTable = classDirTable[currentClass]
@@ -1159,39 +1166,44 @@ def p_np_method_5(p):
 def p_np_method_6(p):
 	'''np_method_6	:'''
 	global funcDirTable, varTable
-	if funcDirTable.has(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY)) == True:
-		print("Error: Method '%s' at line %d was already defined with the same parameters." % (currentMethod, p.lexer.lineno))
-		sys.exit(0)
-	else:
-		newFuncDirRow = FuncDirRow(currentMethodType, isCurrentMethodIndependent, isCurrentMethodPrivate, quadManager.quadCont)
-		funcDirTable.add(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY), newFuncDirRow)
-		# Get the VarTable of the 'just created' function.
-		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
-		for index in range(len(currentParamIds)):
-			if varTable.has(currentParamIds[index]):
-				print("Error: Parameter '%s' was already defined for '%s' method" % (currentParamIds[index], currentMethod))
-				sys.exit(0)
-			else:
-				address = getNextAddress(currentParamTypes[index], "local", currentParamDimsX[index], currentParamDimsY[index])
-				objVarTable = getNewObjVarTable(currentParamTypes[index], "local")
-				newVarTableRow = VarTableRow(currentParamTypes[index], None, None, address, currentParamDimsX[index], currentParamDimsY[index], objVarTable)
-				varTable.add(currentParamIds[index], newVarTableRow)
+	if funcDirTable.has(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY)):
+		existingFuncDirRow = funcDirTable.getFuncDirRow(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+		if not existingFuncDirRow.isInherited:
+			print("Error: Method '%s' at line %d was already defined with the same parameters." % (currentMethod, p.lexer.lineno))
+			sys.exit(0)
+		del existingFuncDirRow
+	
+	isInherited = False
+	newFuncDirRow = FuncDirRow(currentMethodType, isCurrentMethodIndependent, isCurrentMethodPrivate, isInherited, quadManager.quadCont)
+	funcDirTable.add(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY), newFuncDirRow)
+	# Get the VarTable of the 'just created' function.
+	varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+	for index in range(len(currentParamIds)):
+		if varTable.has(currentParamIds[index]):
+			print("Error: Parameter '%s' was already defined for '%s' method" % (currentParamIds[index], currentMethod))
+			sys.exit(0)
+		else:
+			address = getNextAddress(currentParamTypes[index], "local", currentParamDimsX[index], currentParamDimsY[index])
+			objVarTable = getNewObjVarTable(currentParamTypes[index], "local")
+			newVarTableRow = VarTableRow(currentParamTypes[index], None, None, address, currentParamDimsX[index], currentParamDimsY[index], objVarTable)
+			varTable.add(currentParamIds[index], newVarTableRow)
 
-				# If the type of the parameter is an object or if it is a vector or matrix, then we know we have
-				# to load the parameter as a reference.
-				if currentParamDimsY[index] != -1:
-					for _ in range(currentParamDimsX[index]):
-						for _ in range(currentParamDimsY[index]):
-							quadManager.addQuad(operToCode.get("LOAD_REF"), -1, -1, address)
-							address = address + 1
-				elif currentParamDimsX[index] != -1:
-					for _ in range(currentParamDimsX[index]):
+			# If the type of the parameter is an object or if it is a vector or matrix, then we know we have
+			# to load the parameter as a reference.
+			if currentParamDimsY[index] != -1:
+				for _ in range(currentParamDimsX[index]):
+					for _ in range(currentParamDimsY[index]):
 						quadManager.addQuad(operToCode.get("LOAD_REF"), -1, -1, address)
 						address = address + 1
-				elif type(currentParamTypes[index]) is str:
+			elif currentParamDimsX[index] != -1:
+				for _ in range(currentParamDimsX[index]):
 					quadManager.addQuad(operToCode.get("LOAD_REF"), -1, -1, address)
-				else:
-					quadManager.addQuad(operToCode.get("LOAD_PARAM"), -1, -1, address)
+					address = address + 1
+			# TODO: Check this when implementing passing of objects as parameters.
+			elif type(currentParamTypes[index]) is str:
+				quadManager.addQuad(operToCode.get("LOAD_REF"), -1, -1, address)
+			else:
+				quadManager.addQuad(operToCode.get("LOAD_PARAM"), -1, -1, address)
 
 def p_np_method_7(p):
 	'''np_method_7	:'''
