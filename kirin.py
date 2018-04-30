@@ -62,6 +62,15 @@ def getType(address):
 
 # Returns the value associated to a given address (can be global, local or constant).
 def extractValue(address):
+  # Check if the address is a reference to another address.
+  if address in stackDicReferences[currentStackLevel]:
+    targetStackLevel, targetAddress = stackDicReferences[currentStackLevel][address]
+    # If the targetAddress is global, return directly the value from the memHeap.
+    if targetAddress < CONST_LOCAL_START:
+      return memHeap[targetAddress]
+    # Return value contained in the reference.
+    return memStack[targetStackLevel][targetAddress]
+
   # Verify if the address is global.
   if address < CONST_LOCAL_START:
     return memHeap[address]
@@ -70,33 +79,32 @@ def extractValue(address):
   if address >= CONST_CONSTANT_START:
     return memConst[address]
 
-  # From here on, we know the address is local.
-  # Check if the address is a reference to another address.
-  if address in stackDicReferences[currentStackLevel]:
-    targetStackLevel, targetAddress = stackDicReferences[currentStackLevel][address]
-    # Return value contained in the reference.
-    return memStack[targetStackLevel][targetAddress]
-
+  # Here, we know the address is local.
   # Return value contained in address.
   return memStack[currentStackLevel][address]
 
+
 # Sets the value associated to a given address (can be global, local or constant).
 def setValue(address, value):
+  # Check if the address is a reference to another address.
+  if address in stackDicReferences[currentStackLevel]:
+    targetStackLevel, targetAddress = stackDicReferences[currentStackLevel][address]
+    # If the targetAddress is global, set directly the value in the address.
+    if targetAddress < CONST_LOCAL_START:
+      memHeap[targetAddress] = value
+    # Set the value in the referenced address.
+    else:
+      memStack[targetStackLevel][targetAddress] = value
+
   # Verify if the address is global.
-  if address < CONST_LOCAL_START:
+  elif address < CONST_LOCAL_START:
     memHeap[address] = value
   
   # Verify if the address is constant.
   elif address >= CONST_CONSTANT_START:
     memConst[address] = value
 
-  # From here on, we know the address is local.
-  # Check if the address is a reference to another address.
-  elif address in stackDicReferences[currentStackLevel]:
-    targetStackLevel, targetAddress = stackDicReferences[currentStackLevel][address]
-    # Set the value in the referenced address.
-    memStack[targetStackLevel][targetAddress] = value
-  
+  # Here, we know the address is local.
   # Set the value in address.
   else:
     memStack[currentStackLevel][address] = value
@@ -569,6 +577,20 @@ def executeQuad(quad):
   if quad[0] == operToCode.get("DEREF"):
     if quad[3] in stackDicReferences[currentStackLevel]:
       del stackDicReferences[currentStackLevel][quad[3]]
+
+  
+  # OPER -> MAP_ATTR
+  if quad[0] == operToCode.get("MAP_ATTR"):
+    for i in range(quad[1]):
+      origin = quad[2] + i
+      destination = quad[3] + i
+      # If the destination address is already a reference to another address, map the origin to the
+      # address pointed by the destination.
+      if destination in stackDicReferences[currentStackLevel]:
+        stackDicReferences[editingContext][origin] = stackDicReferences[currentStackLevel][destination]
+      # Map the origin address to the destination address.
+      else:
+        stackDicReferences[editingContext][origin] = (currentStackLevel, destination)
 
 # Main
 if len(sys.argv) != 2:

@@ -544,8 +544,9 @@ def p_np_program_0(p):
 
 def p_np_program_1(p):
 	'''np_program_1	:'''
-	global currentClass, funcDirTable
+	global currentClass, currentMethod, funcDirTable
 	currentClass = p[-1]
+	currentMethod = ""
 	if currentClass in classDirTable:
 		print("Error: Class '%s' redefined in line %d" % (currentClass, p.lexer.lineno))
 		sys.exit(0)
@@ -595,7 +596,7 @@ def p_acc_scope(p):
 								| PRIVATE'''
 	p[0] = p[1]
 
-def p_dependent(p):
+def p_acc_dependent(p):
 	'''acc_dependent	: INDEPENDENT np_access_2
 								| np_access_3'''
 
