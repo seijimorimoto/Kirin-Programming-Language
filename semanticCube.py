@@ -310,5 +310,9 @@ class SemanticCube(object):
     elif type(operType1) is str or type(operType2) is str:
       return typeError
     
+    # If the key (operType1, operType2, op) is not in the internal dictionary, then it is an error.
+    elif (operType1, operType2, op) not in self.cube:
+      return typeError
+    
     # Handles the case of the primitive types.
     return self.cube[(operType1, operType2, op)]

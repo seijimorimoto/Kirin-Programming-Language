@@ -19,6 +19,7 @@ Main {
     i = 2;
     j = i*2 - 1;
     call uno(j, j);
+    call dos(i);
     print(i + dos(i + j));
     call uno(i, dos(i));
   }
