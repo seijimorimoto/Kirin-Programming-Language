@@ -35,6 +35,7 @@ operToCode = {
   'REF': 602,
   'DEREF': 603,
   'MAP_ATTR': 701,
+  'DEL_ATTR': 702,
   '(': 1001
 }
 
@@ -70,6 +71,7 @@ codeToOper = {
   602: 'REF',
   603: 'DEREF',
   701: 'MAP_ATTR',
+  702: 'DEL_ATTR',
   1001: '('
 }
 

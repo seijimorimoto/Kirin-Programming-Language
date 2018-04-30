@@ -239,6 +239,7 @@ def checkIfClassExists(className, p):
 		print("Error: Cannot create object in line %d since class '%s' was not defined." % (p.lexer.lineno, currentType))
 		sys.exit(0)
 
+
 # Checks if an object (its class) has a given attribute. It is assumed that the existence of the object received in this function
 # was previously validated by calling checkIfVariableWasDefined() with the parameter objId.
 # Parameters:
@@ -395,25 +396,49 @@ def getVarDims(refersToClass, objId, varId):
 			attributesTable = objVarTableRow.objVarTable # Obtains the VarTable containing the information of all the attributes of the object.
 			return (attributesTable.get(varId).dimX, attributesTable.get(varId).dimY)
 
+
 # Returns the VarTable containing the attributes of an object.
 # Parameters:
 # - refersToClass: True if the object (whose VarTable of attributes is to be returned) was referenced using 'this'. False otherwise.
+# - outerObjId: Name of the object that contains the object whose VarTable of attributes is to be returned. It is "" if the destination
+#   is not contained within another object.
 # - objId: Name of the object whose VarTable of attributes is to be returned.
-def getAttrVarTable(refersToClass, objId):
-	# If 'objId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
-	if refersToClass == True:
-		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
-		objVarTableRow = varTable.get(objId)
-		return objVarTableRow.objVarTable
-
-	else:
-		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
-		# If the VarTable of the current method does not contain the object with id 'objId', then we know the object is a global
-		# variable and we must find its information in the VarTable of the current class. 
-		if varTable.has(objId) == False:
+def getAttrVarTable(refersToClass, outerObjId, objId):
+	# If 'outerObjId' is "", we know 'objId' is an object that is not within another object.
+	if outerObjId == "":
+		# If 'objId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
+		if refersToClass == True:
 			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
-		objVarTableRow = varTable.get(objId)
-		return objVarTableRow.objVarTable
+			objVarTableRow = varTable.get(objId)
+			return objVarTableRow.objVarTable
+		else:
+			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+			# If the VarTable of the current method does not contain the object with id 'objId', then we know the object is a global
+			# variable and we must find its information in the VarTable of the current class. 
+			if varTable.has(objId) == False:
+				varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+			objVarTableRow = varTable.get(objId)
+			return objVarTableRow.objVarTable
+
+	# From here on, we know 'objId' is an object within (i.e. an attribute of) the object 'outerObjId'
+	else:
+		# If 'outerObjId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
+		if refersToClass == True:
+			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+			outerObjVarTableRow = varTable.get(outerObjId)
+			objVarTable = outerObjVarTableRow.objVarTable # Gets the table of attributes of outer object.
+			objVarTableRow = objVarTable.get(objId)
+			return objVarTableRow.objVarTable # Gets the table of attributes of the inner (desired) object.
+		else:
+			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+			# If the VarTable of the current method does not contain the object with id 'outerObjId', then we know the object is a global
+			# variable and we must find its information in the VarTable of the current class. 
+			if varTable.has(outerObjId) == False:
+				varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+			outerObjVarTableRow = varTable.get(outerObjId)
+			objVarTable = outerObjVarTableRow.objVarTable # Gets the table of attributes of outer object.
+			objVarTableRow = objVarTable.get(objId)
+			return objVarTableRow.objVarTable # Gets the table of attributes of the inner (desired) object.
 
 
 def getNewObjVarTable(varType, scope):
@@ -444,6 +469,7 @@ def getNewObjVarTable(varType, scope):
 		return copyVarTable
 	else:
 		return None
+
 
 # Maps the addresses of the attributes of a class to the addresses of a specific instance (object) of that class,
 # so that in execution, when calling a function from an object, the values used within the function are those from the
@@ -476,6 +502,35 @@ def mapObjAttrToClassAttr(objVarTable, classVarTable):
 				numOfMapAddresses = 1
 			# Creates the quadruple that maps addresses from the class to addresses from the object.
 			quadManager.addQuad(operToCode.get("MAP_ATTR"), numOfMapAddresses, classAttrAddress, objAttrAddress)
+
+
+# Resets the addresses of the attributes of an object, so that in execution they are wiped out from memory, until
+# they are assigned a value again.
+# Parameters:
+# - objVarTable: VarTable of the object, containing the information of its attributes.
+def resetObjAttr(objVarTable):
+	# Iterate over each VarTableRow in objVarTable...
+	for attrName, attrVarTableRow in objVarTable.table.items():
+		attrType = attrVarTableRow.varType
+		# If the type of the attribute represents an object, then we call recursively resetObjAttr, so that
+		# its attributes are also reset.
+		if type(attrType) is str:
+			innerObjVarTable = attrVarTableRow.objVarTable
+			resetObjAttr(innerObjVarTable)
+		else:
+			objAttrAddress = attrVarTableRow.address
+			attrDimX = attrVarTableRow.dimX
+			attrDimY = attrVarTableRow.dimY
+			# Sets how many consecutive addresses will be reset based on the dimensions of the attribute.
+			# If the attribute has no dimensions (i.e. dimX = -1 and dimY = -1), then 1 consecutive address is reset.
+			if attrDimY != -1:
+				numOfResetAddresses = attrDimX * attrDimY
+			elif attrDimX != -1:
+				numOfResetAddresses = attrDimX
+			else:
+				numOfResetAddresses = 1
+			# Creates the quadruple that resets addresses of the attributes of the object.
+			quadManager.addQuad(operToCode.get("DEL_ATTR"), numOfResetAddresses, -1, objAttrAddress)
 
 
 def generateQuadForBinaryOperator(operatorList):
@@ -1039,7 +1094,7 @@ def p_np_method_1(p):
 	isCurrentMethodPrivate = False
 	isCurrentMethodIndependent = False
 	currentMethod = "constructor"
-	currentType = currentClass
+	currentType = typeToCode.get("void")
 	currentMethodType = currentType
 
 def p_np_method_2(p):
@@ -1179,7 +1234,7 @@ def p_np_create_obj_1(p):
 	if type(operType) is not str:
 		print("Error: Cannot call a constructor on primitive type in line %d" % (p.lexer.lineno))
 		sys.exit(0)
-	stackFunctionCalls.push((currentVarId, "constructor"))
+	stackFunctionCalls.push((refersToClass, frontObjectAccessed, currentVarId, "constructor"))
 
 #FUNC_CALL
 def p_func_call(p):
@@ -1221,25 +1276,32 @@ def p_np_func_call_2(p):
 
 def p_np_func_call_3(p):
 	'''np_func_call_3	:'''
-	refersToClass, callingObject, funcName = stackFunctionCalls.pop()
+	refersToClass, firstObject, callingObject, funcName = stackFunctionCalls.pop()
 	currentParamsToBeSend = stackParamsToBeSend.top()
 	currentParamsTypesToBeSend = stackParamsTypesToBeSend.top()
 	localParamDimsX = stackParamsDimsX.top()
 	localParamDimsY = stackParamsDimsY.top()
 
-	# Checks if the function is being called from an object.
+	# Checks if the function is being called from an object (this also applies if the function is a constructor).
 	if callingObject != "":
-		callingObjectClass = getVarType(refersToClass, "", callingObject) # Gets the class of the calling object.
+		# If the function is a constructor, firstObject might have data.
+		# If the function is not a constructor, firstObject will allways be an empty string.
+		callingObjectClass = getVarType(refersToClass, firstObject, callingObject) # Gets the class of the calling object.
 		classFuncDirTable = classDirTable[callingObjectClass] # Gets the FuncDirTable of the class of the calling object.
 		# Validates that the function exists in the class of the calling object.
 		if classFuncDirTable.has(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY)) == False:
 			print("Error: '%s' does not contain the function '%s' with the arguments passed in line %d." % (callingObject, funcName, p.lexer.lineno))
 			sys.exit(0)
 		classVarTable = classFuncDirTable.getVarTable(callingObjectClass, None, None, None)
-		objVarTable = getAttrVarTable(refersToClass, callingObject)
+		objVarTable = getAttrVarTable(refersToClass, firstObject, callingObject)
+		# If the function is a constructor, we need to reset the attributes of the calling object.
+		if funcName == "constructor":
+			resetObjAttr(objVarTable)
 		mapObjAttrToClassAttr(objVarTable, classVarTable)
 		funcDirRow = classFuncDirTable.getFuncDirRow(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY))
 	
+	# If the function is not being called from an object, we only check if the function exists in the currentClass and obtain
+	# its information (i.e. its funcDirRow), without mapping or resetting attributes.
 	else:
 		if funcDirTable.has(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY)) == False:
 			print("Error: Function '%s' with the arguments used in line %d was not defined." % (funcName, p.lexer.lineno))
@@ -1249,6 +1311,7 @@ def p_np_func_call_3(p):
 	funcStartPos = funcDirRow.startPos
 	funcType = funcDirRow.blockType
 
+	# Iterate over the parameters that are going to be send, so as to generate the corresponding quadruples (PPARAM or PARAM_REF).
 	for index in range(len(currentParamsToBeSend)):
 		# If the type of the parameter is an object or if it is a vector or matrix, then we know we have
 		# to load the parameter as a reference.
@@ -1269,13 +1332,16 @@ def p_np_func_call_3(p):
 			quadManager.addQuad(operToCode.get("PARAM"), -1, -1, address)
 	
 	quadManager.addQuad(operToCode.get("GOSUB"), -1, -1, funcStartPos)
-	# TODO: Add error message for checking if you called a void function in an expression.
 	if funcType != typeToCode.get("void"):
 		returnAddress = getNextAddress(funcType, "temp", 1, 1)
 		quadManager.addQuad(operToCode.get("="), -1, CONST_RETURN, returnAddress)
 		quadManager.pushOper(returnAddress)
-		quadManager.pushType(funcType)
-		stackDimSizes.push((-1, -1))
+	else:
+		# Pushes the CONST_RETURN address temporarily, however it will not be used (it is just to avoid having the
+		# stack of operands empty).
+		quadManager.pushOper(CONST_RETURN)
+	quadManager.pushType(funcType)
+	stackDimSizes.push((-1, -1))
 		
 
 def p_np_func_call_4(p):
@@ -1303,7 +1369,7 @@ def p_statement(p):
 								| loop
 								| in_out
 								| return
-								| CALL this_id statement_function ';'
+								| CALL this_id statement_function ';' np_statement_3
 								| var_decl'''
 
 def p_statement_function(p):
@@ -1315,15 +1381,24 @@ def p_np_statement_1(p):
 	'''np_statement_1	:'''
 	global stackFunctionCalls
 	funcName = p[-1]
+	firstObject = ""
 	callingObjName = ""
-	stackFunctionCalls.push((refersToClass, callingObjName, funcName))
+	stackFunctionCalls.push((refersToClass, firstObject, callingObjName, funcName))
 
 def p_np_statement_2(p):
 	'''np_statement_2	:'''
 	global stackFunctionCalls
 	funcName = p[-1]
+	firstObject = ""
 	callingObjName = p[-3]
-	stackFunctionCalls.push((refersToClass, callingObjName, funcName))
+	stackFunctionCalls.push((refersToClass, firstObject, callingObjName, funcName))
+
+def p_np_statement_3(p):
+	'''np_statement_3	:'''
+	# Removes the operand, type and dimensions left in the stacks by the function call.
+	quadManager.popOper()
+	quadManager.popType()
+	stackDimSizes.pop()
 
 #CONDITION
 def p_condition(p):
@@ -1779,8 +1854,9 @@ def p_np_factor_9(p):
 	'''np_factor_9	:'''
 	global stackFunctionCalls
 	funcName = p[-1]
+	firstObject = ""
 	callingObject = ""
-	stackFunctionCalls.push((refersToClass, callingObject, funcName))
+	stackFunctionCalls.push((refersToClass, firstObject, callingObject, funcName))
 
 def p_np_factor_10(p):
 	'''np_factor_10	:'''
@@ -1797,8 +1873,9 @@ def p_np_factor_11(p):
 	'''np_factor_11	:'''
 	global stackFunctionCalls
 	funcName = p[-1]
+	firstObject = ""
 	callingObject = p[-3]
-	stackFunctionCalls.push((refersToClass, callingObject, funcName))
+	stackFunctionCalls.push((refersToClass, firstObject, callingObject, funcName))
 
 #ERROR
 def p_error(p):

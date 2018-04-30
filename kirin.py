@@ -592,6 +592,24 @@ def executeQuad(quad):
       else:
         stackDicReferences[editingContext][origin] = (currentStackLevel, destination)
 
+
+  # OPER -> DEL_ATTR
+  if quad[0] == operToCode.get("DEL_ATTR"):
+    for i in range(quad[1]):
+      address = quad[3] + i
+      # If the attribute address to be wiped out is a reference to another address...
+      if address in stackDicReferences[currentStackLevel]:
+      # Get the target stack level and the target address pointed by address.
+        targetStackLevel, targetAddress = stackDicReferences[currentStackLevel][address]
+        # If the targetAddress exists in the memory of the target stack level, then
+        # delele it.
+        if targetAddress in memStack[targetStackLevel]:
+          del memStack[targetStackLevel][targetAddress]
+      # If the address (that doesn't point to another address) exists in the memory of the
+      # current stack level, then delete it.
+      elif address in memStack[currentStackLevel]:
+        del memStack[currentStackLevel][address]
+
 # Main
 if len(sys.argv) != 2:
   print("Error: Expected usage is %s name_of_file" %(sys.argv[0]))
