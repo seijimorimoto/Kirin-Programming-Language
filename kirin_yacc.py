@@ -937,24 +937,11 @@ def p_vars(p):
 
 def p_vars_type(p):
 	'''vars_type	: type np_vars_1 vars_tp_a
-	        			| ID np_vars_2 vars_tp_b'''
+	        			| ID np_vars_2'''
 
 def p_vars_tp_a(p):
 	'''vars_tp_a	: np_vars_6 '=' np_vars_4 expression np_vars_5
 	   				    | empty'''
-
-def p_vars_tp_b(p):
-	'''vars_tp_b	: np_vars_6 '=' vars_assgn
-	   					  | empty'''
-
-# TODO: Check these cases.
-def p_vars_assgn(p):
-	'''vars_assgn	: create_obj
-	  				    | this_id vars_assgn_2'''
-
-def p_vars_assgn_2(p):
-	'''vars_assgn_2	: '.' ID
-									|	empty'''
 
 #NEURAL POINTS FOR VARS
 def p_np_vars_1(p):
