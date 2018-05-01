@@ -72,6 +72,9 @@ decisionsPerLevel = [0]
 decisionLevel = 0
 ctDic = {}
 frontObjectAccessed = "" # It is the identifier of the first object in an expression like: first_object.attr
+destObject = "" # Represents the destination object of an assignment.
+destOuterObject = "" # Represents the object (if any) in which it is contained the destObject.
+destRefersToClass = False # Tells whether the destObject was referenced with 'this' or not.
 
 # Returns the next available address (according to the parameters received) to assign it to a variable.
 # Parameters:
@@ -671,7 +674,16 @@ def generateQuadForBinaryOperator(operatorList):
 		operator = quadManager.popOp()
 		resType = semanticCube.checkType(operator, operType1, operType2)
 		if codeToType.get(resType) == "error":
-			print("Error: Binary '%s' does not support operands of type '%s', '%s'." % (codeToOper.get(operator), codeToType.get(operType1), codeToType.get(operType2)))
+			operatorStr = codeToOper.get(operator)
+			if type(operType1) is str:
+				operType1Str = operType1
+			else:
+				operType1Str = codeToType.get(operType1)
+			if type(operType2) is str:
+				operType2Str = operType2
+			else:
+				operType2Str = codeToType.get(operType2)
+			print("Error: Binary '%s' does not support operands of type '%s', '%s'." % (operatorStr, operType1Str, operType2Str))
 			sys.exit(0)
 		resAddress = getNextAddress(resType, "temp", 1, 1)
 		quadManager.addQuad(operator, oper1, oper2, resAddress)
@@ -693,7 +705,12 @@ def generateQuadForUnaryOperator(operatorList):
 		operator = quadManager.popOp()
 		resType = semanticCube.checkType(operator, -1, operType)
 		if codeToType.get(resType) == "error":
-			print("Error: Unary '%s' does not support operand of type '%s'." % (codeToOper.get(operator), codeToType.get(operType)))
+			operatorStr = codeToOper.get(operator)
+			if type(operType) is str:
+				operTypeStr = operType
+			else:
+				operTypeStr = codeToType.get(operType)
+			print("Error: Unary '%s' does not support operand of type '%s'." % (operatorStr, operTypeStr))
 			sys.exit(0)
 		resAddress = getNextAddress(resType, "temp", 1, 1)
 		quadManager.addQuad(operator, -1, oper, resAddress)
@@ -991,9 +1008,12 @@ def p_assg_value(p):
 #NEURAL POINTS FOR ASSIGNMENT
 def p_np_assignment_1(p):
 	'''np_assignment_1	:'''
-	global currentVarId, frontObjectAccessed
+	global currentVarId, frontObjectAccessed, destOuterObject, destObject, destRefersToClass
 	frontObjectAccessed = "" # There is no frontObjectAccessed since there is no expression like: ID.ID or this.ID.ID
 	currentVarId = p[-1]
+	destOuterObject = ""
+	destObject = p[-1]
+	destRefersToClass = refersToClass
 	checkIfVariableWasDefined(currentClass, refersToClass, currentMethod, currentVarId, p)
 	quadManager.pushOper(getVarAddress(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
 	quadManager.pushType(getVarType(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
@@ -1016,13 +1036,29 @@ def p_np_assignment_3(p):
 	if codeToType.get(answerType) == "error":
 		print("Error: Type mismatch in line %d." % (p.lexer.lineno))
 		sys.exit(0)
-	quadManager.addQuad(currentOp, -1, expressionValue, assignedVar)
+
+	if type(answerType) is not str:
+		quadManager.addQuad(currentOp, -1, expressionValue, assignedVar)
+	
+	# Special case for object assignment.
+	else:
+		# It is guaranteed that destRefersToClass, destOuterObject and destObject contain the correct information
+		# of the object on the left hand side of the '=' operator. Also, it is guaranteed that refersToClass,
+		# frontObjectAccesses and currentVarId hold the correct information of the object on the right hand side of
+		# '=' operator. This would not be true if more than one assignment could take place in a single line.
+		destObjVarTable = getAttrVarTable(destRefersToClass, destOuterObject, destObject)
+		origObjVarTable = getAttrVarTable(refersToClass, frontObjectAccessed, currentVarId)
+		mapObjAttrToClassAttr(origObjVarTable, destObjVarTable)
+	
 
 def p_np_assignment_4(p):
 	'''np_assignment_4	:'''
-	global currentVarId, frontObjectAccessed
+	global currentVarId, frontObjectAccessed, destOuterObject, destObject, destRefersToClass
 	frontObjectAccessed = p[-3] # This is the first ID in an expression like the following: ID.ID or this.ID.ID
 	currentVarId = p[-1] # This is the second ID in an expression like the following: ID.ID or this.ID.ID
+	destOuterObject = p[-3]
+	destObject = p[-1]
+	destRefersToClass = refersToClass
 	# If frontObjectAccessed is the name of a class, handles the case of trying to use an independent variable of the
 	# class.
 	# TODO: This code repeats in 3 places, it might be convenient to separate it into its own function.

@@ -1,0 +1,16 @@
+class Object {
+  public var num1, num2 : int;
+  
+  constructor() {
+    num1 = 0;
+    num2 = 0;
+  }
+}
+
+Main {
+  public_func independent void main() {
+    var obj : Object;
+    var x, y : int;
+    x = obj + y;
+  }
+}

@@ -292,13 +292,9 @@ class SemanticCube(object):
     if type(operType1) is str and type(operType2) is str:
       # If both are of the same class...
       if operType1 == operType2:
-        if op == operToCode.get("=="):
-          return typeBool
-        elif op == operToCode.get("<>"):
-          return typeBool
-        elif op == operToCode.get("="):
+        if op == operToCode.get("="):
           return operType1
-        # Operators different from '==', '<>' and '=' are not allowed between objects.
+        # Operators different from '=' are not allowed between objects.
         else:
           return typeError
       # Cannot do operations between objects of different classes.
