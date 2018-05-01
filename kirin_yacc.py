@@ -121,65 +121,110 @@ def getNextAddress(varType, scope, dimX, dimY):
 		if typeAsStr == 'int':
 			newAddress = gInt
 			gInt = gInt + shiftConstant
+			if gInt >= CONST_G_BEGIN_DOUBLE:
+				print("Error: Too many global 'int' variables defined (in or outside of objects).")
+				sys.exit(0)
 			return newAddress
 		if typeAsStr == 'double':
 			newAddress = gDouble
 			gDouble = gDouble + shiftConstant
+			if gDouble >= CONST_G_BEGIN_CHAR:
+				print("Error: Too many global 'char' variables defined (in or outside of objects).")
+				sys.exit(0)
 			return newAddress
 		if typeAsStr == 'char':
 			newAddress = gChar
 			gChar = gChar + shiftConstant
+			if gChar >= CONST_G_BEGIN_BOOL:
+				print("Error: Too many global 'bool' variables defined (in or outside of objects).")
+				sys.exit(0)
 			return newAddress
 		if typeAsStr == 'bool':
 			newAddress = gBool
 			gBool = gBool + shiftConstant
+			if gBool >= CONST_L_BEGIN_INT:
+				print("Error: Too many global 'bool' variables defined (in or outside of objects).")
+				sys.exit(0)
 			return newAddress
 	elif scope == 'local':
 		if typeAsStr == 'int':
 			newAddress = lInt
 			lInt = lInt + shiftConstant
+			if lInt >= CONST_L_BEGIN_DOUBLE:
+				print("Error: Too many local 'int' variables defined (in or outside of objects).")
+				sys.exit(0)
 			return newAddress
 		if typeAsStr == 'double':
 			newAddress = lDouble
 			lDouble = lDouble + shiftConstant
+			if lDouble >= CONST_L_BEGIN_CHAR:
+				print("Error: Too many local 'double' variables defined (in or outside of objects).")
+				sys.exit(0)
 			return newAddress
 		if typeAsStr == 'char':
 			newAddress = lChar
 			lChar = lChar + shiftConstant
+			if lChar >= CONST_L_BEGIN_BOOL:
+				print("Error: Too many local 'char' variables defined (in or outside of objects).")
+				sys.exit(0)
 			return newAddress
 		if typeAsStr == 'bool':
 			newAddress = lBool
 			lBool = lBool + shiftConstant
+			if lBool >= CONST_T_BEGIN_INT:
+				print("Error: Too many local 'bool' variables defined (in or outside of objects).")
+				sys.exit(0)
 			return newAddress
 	elif scope == 'temp':
 		if typeAsStr == 'int':
 			newAddress = tInt
 			tInt = tInt + shiftConstant
+			if tInt >= CONST_T_BEGIN_DOUBLE:
+				print("Error: Too many temporal 'int' variables used for operations.")
+				sys.exit(0)
 			return newAddress
 		if typeAsStr == 'double':
 			newAddress = tDouble
 			tDouble = tDouble + shiftConstant
+			if tDouble >= CONST_T_BEGIN_CHAR:
+				print("Error: Too many temporal 'double' variables used for operations.")
+				sys.exit(0)
 			return newAddress
 		if typeAsStr == 'char':
 			newAddress = tChar
 			tChar = tChar + shiftConstant
+			if tChar >= CONST_T_BEGIN_BOOL:
+				print("Error: Too many temporal 'char' variables used for operations.")
+				sys.exit(0)
 			return newAddress
 		if typeAsStr == 'bool':
 			newAddress = tBool
 			tBool = tBool + shiftConstant
+			if tBool >= CONST_CT_BEGIN_INT:
+				print("Error: Too many temporal 'bool' variables used for operations.")
+				sys.exit(0)
 			return newAddress
 	elif scope == 'const':
 		if typeAsStr == 'int':
 			newAddress = ctInt
 			ctInt = ctInt + shiftConstant
+			if ctInt >= CONST_CT_BEGIN_DOUBLE:
+				print("Error: Too many 'int' constants used.")
+				sys.exit(0)
 			return newAddress
 		if typeAsStr == 'double':
 			newAddress = ctDouble
 			ctDouble = ctDouble + shiftConstant
+			if ctDouble >= CONST_CT_BEGIN_CHAR:
+				print("Error: Too many 'double' constants used.")
+				sys.exit(0)
 			return newAddress
 		if typeAsStr == 'char':
 			newAddress = ctChar
 			ctChar = ctChar + shiftConstant
+			if ctChar >= CONST_CT_BEGIN_BOOL:
+				print("Error: Too many 'char' constants used.")
+				sys.exit(0)
 			return newAddress
 		if typeAsStr == 'bool':
 			newAddress = ctBool
