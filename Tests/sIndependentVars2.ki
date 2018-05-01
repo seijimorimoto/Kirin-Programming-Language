@@ -1,0 +1,41 @@
+class Patito {
+  public independent var estatica1 : int;
+  public var x, y, z : int;
+  
+  constructor() {
+      x = 1;
+      y = 1;
+      z = 1;
+  }
+}
+
+class PatitoHijo inherits Patito {
+  public independent var estatica2 : int;
+  public var w : int;
+  
+  constructor() {
+      estatica1 = 1;
+      estatica2 = 0;
+      x = 2;
+      y = 2;
+      z = 2;
+      w = 2;
+  }
+}
+
+Main {
+  public_func independent void main() {
+    var p : PatitoHijo;
+    var p2 : Patito;
+    p = new();
+    p2 = new();
+
+    p.estatica1 = p.estatica1 + 1;
+    print(p.estatica1);
+
+    p2.estatica1 = 5;
+
+    print(p2.estatica1);
+    print(p.estatica1);
+  }
+}

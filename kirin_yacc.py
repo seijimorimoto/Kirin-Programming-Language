@@ -451,32 +451,44 @@ def getAttrVarTable(refersToClass, outerObjId, objId):
 			return objVarTableRow.objVarTable # Gets the table of attributes of the inner (desired) object.
 
 
+# Returns a VarTable containing the attributes of an object, as a parallel version of the VarTable that holds the
+# attributes of the class of the object, but with new addresses.
+# If it receives a primitive type instead of a class as its first parameter, it returns None.
+# Parameters:
+# - varType: Name of the class of the object for which a new VarTable is going to be returned. It can also be a
+#    primitive type (represented as integer).
+# - scope: Scope (global, local, temp or constant) of the desired addresses for the VarTable to be returned.
 def getNewObjVarTable(varType, scope):
 	# If the varType represents an object, obtains the varTable of the class of the object, creates a modified copy
 	# of it (by replacing the addresses of its attributes by new addresses) and returns this copy.
-	# If the varType does not represent an object, returns None.
 	if type(varType) is str:
 		classVarTable = classDirTable[varType].getVarTable(varType, None, None, None)
 		copyVarTable = VarTable()
 		# Iterates over each varTableRow in the varTable of the class... 
 		for classVarId, classVarTableRow in classVarTable.table.items():
-			classAttrType = classVarTableRow.varType
 			classAttrIsIndependent = classVarTableRow.isIndependent
-			classAttrIsPrivate = classVarTableRow.isPrivate
-			classAttrDimX = classVarTableRow.dimX
-			classAttrDimY = classVarTableRow.dimY
-			# If the type of the attribute represents an object, then we call recursively getNewObjVarTable to associate
-			# the varTable that contains all the attributes of that object to it. 
-			if type(classAttrType) is str:
-				innerObjVarTable = getNewObjVarTable(classAttrType, scope)
-				newAddress = -1
+			# If the attribute of the class is independent, then we add directly the classVarTableRow to our copyVarTable.
+			if classAttrIsIndependent:
+				copyVarTable.add(classVarId, classVarTableRow)
+			# Else, we need to create a copy of the classVarTableRow but with new addresses.
 			else:
-				newAddress = getNextAddress(classAttrType, scope, classAttrDimX, classAttrDimY)
-				innerObjVarTable = None
-			# Creates copy of the original varTableRow, but with the new address.
-			copyVarTableRow = VarTableRow(classAttrType, classAttrIsIndependent, classAttrIsPrivate, newAddress, classAttrDimX, classAttrDimY, innerObjVarTable)
-			copyVarTable.add(classVarId, copyVarTableRow)
+				classAttrType = classVarTableRow.varType
+				classAttrIsPrivate = classVarTableRow.isPrivate
+				classAttrDimX = classVarTableRow.dimX
+				classAttrDimY = classVarTableRow.dimY
+				# If the type of the attribute represents an object, then we call recursively getNewObjVarTable to associate
+				# the varTable that contains all the attributes of that object to it. 
+				if type(classAttrType) is str:
+					innerObjVarTable = getNewObjVarTable(classAttrType, scope)
+					newAddress = -1
+				else:
+					innerObjVarTable = None
+					newAddress = getNextAddress(classAttrType, scope, classAttrDimX, classAttrDimY)
+				# Creates copy of the original varTableRow, but with the new address.
+				copyVarTableRow = VarTableRow(classAttrType, classAttrIsIndependent, classAttrIsPrivate, newAddress, classAttrDimX, classAttrDimY, innerObjVarTable)
+				copyVarTable.add(classVarId, copyVarTableRow)
 		return copyVarTable
+	# If the varType does not represent an object, returns None.
 	else:
 		return None
 
@@ -491,27 +503,30 @@ def mapObjAttrToClassAttr(objVarTable, classVarTable):
 	# Iterate over each VarTableRow in objVarTable...
 	for attrName, attrVarTableRow in objVarTable.table.items():
 		attrType = attrVarTableRow.varType
-		# If the type of the attribute represents an object, then we call recursively mapObjAttrToClassAttr, so that
-		# its attributes are also mapped correctly.
-		if type(attrType) is str:
-			innerObjVarTable = attrVarTableRow.objVarTable
-			innerClassVarTable = classVarTable.get(attrName).objVarTable
-			mapObjAttrToClassAttr(innerObjVarTable, innerClassVarTable)
-		else:
-			objAttrAddress = attrVarTableRow.address
-			classAttrAddress = classVarTable.get(attrName).address
-			attrDimX = attrVarTableRow.dimX
-			attrDimY = attrVarTableRow.dimY
-			# Sets how many consecutive addresses will be mapped based on the dimensions of the attribute.
-			# If the attribute has no dimensions (i.e. dimX = -1 and dimY = -1), then 1 consecutive address is used.
-			if attrDimY != -1:
-				numOfMapAddresses = attrDimX * attrDimY
-			elif attrDimX != -1:
-				numOfMapAddresses = attrDimX
+		attrIsIndependent = attrVarTableRow.isIndependent
+		# Checks if the object is independent, because it will only map attributes that are dependent.
+		if not attrIsIndependent:
+			# If the type of the attribute represents an object, then we call recursively mapObjAttrToClassAttr, so that
+			# its attributes are also mapped correctly.
+			if type(attrType) is str:
+				innerObjVarTable = attrVarTableRow.objVarTable
+				innerClassVarTable = classVarTable.get(attrName).objVarTable
+				mapObjAttrToClassAttr(innerObjVarTable, innerClassVarTable)
 			else:
-				numOfMapAddresses = 1
-			# Creates the quadruple that maps addresses from the class to addresses from the object.
-			quadManager.addQuad(operToCode.get("MAP_ATTR"), numOfMapAddresses, classAttrAddress, objAttrAddress)
+				objAttrAddress = attrVarTableRow.address
+				classAttrAddress = classVarTable.get(attrName).address
+				attrDimX = attrVarTableRow.dimX
+				attrDimY = attrVarTableRow.dimY
+				# Sets how many consecutive addresses will be mapped based on the dimensions of the attribute.
+				# If the attribute has no dimensions (i.e. dimX = -1 and dimY = -1), then 1 consecutive address is used.
+				if attrDimY != -1:
+					numOfMapAddresses = attrDimX * attrDimY
+				elif attrDimX != -1:
+					numOfMapAddresses = attrDimX
+				else:
+					numOfMapAddresses = 1
+				# Creates the quadruple that maps addresses from the class to addresses from the object.
+				quadManager.addQuad(operToCode.get("MAP_ATTR"), numOfMapAddresses, classAttrAddress, objAttrAddress)
 
 
 # Resets the addresses of the attributes of an object, so that in execution they are wiped out from memory, until
@@ -709,12 +724,12 @@ def p_acc_scope(p):
 
 def p_acc_dependent(p):
 	'''acc_dependent	: INDEPENDENT np_access_2
-								| np_access_3'''
+										| np_access_3'''
 
 #NEURAL POINTS FOR ACCESS
 def p_np_access_1(p):
 	'''np_access_1	:'''
-	global isCurrentVarPrivate, isCurrentVarIndependent
+	global isCurrentVarPrivate
 	if (p[-1] == "public"):
 		isCurrentVarPrivate = False
 	else:
