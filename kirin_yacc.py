@@ -194,45 +194,75 @@ def resetLocalAndTempMemoryAddresses():
 	tChar = CONST_T_BEGIN_CHAR
 	tBool = CONST_T_BEGIN_BOOL
 
-def validateAndAddVarsToScope(dimX, dimY):
+def validateAndAddVarsToScope(dimX, dimY, p):
 	# Iterate over all the variables that will be added with the currentType.
 	for currentVarId in currentVarIds:
 		# If the variables we are adding are global (i.e. attributes of the current class)...
 		if currentMethod == "":
 			varTable = funcDirTable.getVarTable(currentClass, None, None, None) 
+			# Verify that the variable does not already exist in the VarTable of the currentClass.
 			if varTable.has(currentVarId):
-				print("Error: Variable '%s' was already defined." % (currentVarId))
+				print("Error: Variable '%s' in line %d was already defined." % (currentVarId, p.lexer.lineno))
 				sys.exit(0)
-			else:
-				address = getNextAddress(currentType, "global", dimX, dimY)
-				objVarTable = getNewObjVarTable(currentType, "global")
-				newVarTableRow = VarTableRow(currentType, isCurrentVarIndependent, isCurrentVarPrivate, address, dimX, dimY, objVarTable)
-				varTable.add(currentVarId, newVarTableRow)
+			# Verify that the variable's name isn't the same as the name of a previously defined class.
+			if currentVarId in classDirTable:
+				print("Error: Variable cannot have the name of class '%s' in line %d." % (currentVarId, p.lexer.lineno))
+				sys.exit(0)
+			address = getNextAddress(currentType, "global", dimX, dimY)
+			objVarTable = getNewObjVarTable(currentType, "global")
+			newVarTableRow = VarTableRow(currentType, isCurrentVarIndependent, isCurrentVarPrivate, address, dimX, dimY, objVarTable)
+			varTable.add(currentVarId, newVarTableRow)
+		
 		else:
 			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+			# Verify that the variable does not already exist in the VarTable of the currentClass.
 			if varTable.has(currentVarId):
-				print("Error: Variable '%s' was already defined." % (currentVarId))
+				print("Error: Variable '%s' in line %d was already defined." % (currentVarId, p.lexer.lineno))
 				sys.exit(0)
-			else:
-				address = getNextAddress(currentType, "local", dimX, dimY)
-				objVarTable = getNewObjVarTable(currentType, "local")
-				newVarTableRow = VarTableRow(currentType, None, None, address, dimX, dimY, objVarTable)
-				varTable.add(currentVarId, newVarTableRow)
+			# Verify that the variable's name isn't the same as the name of a previously defined class.
+			if currentVarId in classDirTable:
+				print("Error: Variable cannot have the name of class '%s' in line %d." % (currentVarId, p.lexer.lineno))
+				sys.exit(0)	
+			address = getNextAddress(currentType, "local", dimX, dimY)
+			objVarTable = getNewObjVarTable(currentType, "local")
+			newVarTableRow = VarTableRow(currentType, None, None, address, dimX, dimY, objVarTable)
+			varTable.add(currentVarId, newVarTableRow)
 
-def checkIfVariableWasDefined(id):
-	if refersToClass == True or currentMethod == "":
-		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
-		if varTable.has(id) == False:
-			print("Error: Variable '%s' was not declared." % (id))
+
+# Checks if a variable was defined in a given class.
+# Finalizes program execution if the variable was not defined in the class.
+# Parameters:
+# - className: Name of the class in which the definition of a variable will be checked.
+# - refersToClass: True if the variable to be checked was referenced using 'this'. False otherwise.
+# - methodName: Name of the method in which the variable's definition will be checked if refersToClass is false.
+# - varId: Name of the variable that is going to be checked.
+# - p: Yacc variable used for displaying "line number" information in case of errors.
+def checkIfVariableWasDefined(className, refersToClass, methodName, varId, p):
+	classFuncDirTable = classDirTable[className] # Gets the FuncDirTable of the class given by className.
+	# If 'varId' is being referenced by 'this' or methodName is "", we know we have to retrieve the information from the VarTable
+	# of the class given by className.
+	if refersToClass == True or methodName == "":
+		varTable = classFuncDirTable.getVarTable(className, None, None, None)
+		if varTable.has(varId) == False:
+			print("Error: Variable '%s' in line %d was not declared in class '%s'." % (varId, p.lexer.lineno, className))
 			sys.exit(0)
+	
 	else:
-		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
-		if varTable.has(id) == False:
-			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
-			if varTable.has(id) == False:
-				print("Error: Variable '%s' was not declared." % (id))
+		varTable = classFuncDirTable.getVarTable(methodName, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+		# If 'varId' is not found in the VarTable of the method given by methodName, then we know it is a global variable and we
+		# must retrieve its information from the VarTable of the class given by className.
+		if varTable.has(varId) == False:
+			varTable = classFuncDirTable.getVarTable(currentClass, None, None, None)
+			if varTable.has(varId) == False:
+				print("Error: Variable '%s' in line %d was not declared in class '%s'." % (varId, p.lexer.lineno, className))
 				sys.exit(0)
 
+
+# Checks if a given class exists.
+# Finalizes program execution if the class did not exist.
+# Parameters:
+# - className: Name of the class whose existence will be checked.
+# - p: Yacc variable used for displaying "line number" information in case of errors.
 def checkIfClassExists(className, p):
 	if className not in classDirTable:
 		print("Error: Cannot create object in line %d since class '%s' was not defined." % (p.lexer.lineno, currentType))
@@ -242,6 +272,7 @@ def checkIfClassExists(className, p):
 # Checks if an object has a given attribute and can access it (according to its public/private setting). It is assumed
 # that the existence of the object received in this function was previously validated by calling checkIfVariableWasDefined()
 # with the parameter objId.
+# Finalizes program execution if the object did not have the given attribute or if it did not have permission to access it.
 # Parameters:
 # - objId: Name of the object that is going to be checked.
 # - attrId: Name of the attribute whose existence will be checked inside the object with name given by objId.
@@ -279,45 +310,64 @@ def checkIfObjectHasAttribute(objId, attrId, p):
 		if attributeRow.isPrivate and currentClass != attributeRow.varType:
 			print("Error: Cannot access private attribute '%s' of object '%s' in line %d." % (attrId, objId, p.lexer.lineno))
 			sys.exit(0)
-	
+
+# Checks if a given variable is independent.
+# Finalizes program execution if the variable is not independent.
+# Parameters:
+# - className: Name of the class in which the variable will be searched.
+# - varId: Name of the variable whose "independent" status will be checked. 
+# - p: Yacc variable used for displaying "line number" information in case of errors.
+def checkIfVariableIsIndependent(className, varId, p):
+	classFuncDirTable = classDirTable[className]
+	classVarTable = classFuncDirTable.getVarTable(className, None, None, None)
+	varTableRow = classVarTable.get(varId)
+	if not varTableRow.isIndependent:
+		print("Error: Cannot use '%s.%s' in line %d because '%s' is not an independent variable." % (className, varId, p.lexer.lineno, varId))
+		sys.exit(0)
 
 # Returns the memory address that corresponds to a given variable. It is assumed that the existence of the variable and the object
 # (if the variable is inside it) was previously validated by calling checkIfVariableWasDefined() or checkIfObjectHasAttribute(). 
 # Parameters:
+# - className: Name of the class in which the variable will be searched.
 # - refersToClass: True if the variable or the object that contains it was referenced using 'this'. False otherwise.
+# - methodName: Name of the method in which the variable will be searched if refersToClass is false.
 # - objId: Name of the object that contains the variable whose address is desired. It is "" if the variable is not inside an object.
 # - varId: Name of the variable (or attribute, if inside an object) whose address is desired.
-def getVarAddress(refersToClass, objId, varId):
+def getVarAddress(className, refersToClass, methodName, objId, varId):
+	classFuncDirTable = classDirTable[className] # Gets the FuncDirTable of the class given by className.
+	
 	# If 'objId' is "", we know 'varId' is a simple variable and not an attribute of an object.
 	if objId == "":
-		# If 'varId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
-		if refersToClass == True:
-			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+		# If 'varId' is being referenced by 'this' or methodName is "", we know we have to retrieve the information from the VarTable
+		# of the class given by className.
+		if refersToClass == True or methodName == "":
+			varTable = classFuncDirTable.getVarTable(className, None, None, None)
 			return varTable.get(varId).address
 		else:
-			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
-			# If the VarTable of the current method does not contain the variable with id 'varId', then we know it is a global
-			# variable and we must find its information in the VarTable of the current class. 
+			varTable = classFuncDirTable.getVarTable(methodName, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+			# If the VarTable of the method given by methodName does not contain the variable with id 'varId', then we know it is a
+			# global variable and we must find its information in the VarTable of the class given by className. 
 			if varTable.has(varId):
 				return varTable.get(varId).address
 			else:
-				varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+				varTable = classFuncDirTable.getVarTable(className, None, None, None)
 				return varTable.get(varId).address
 	
 	# From here on, we know 'varId' is an attribute of an object.
 	else:
-		# If 'objId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
-		if refersToClass == True:
-			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+		# If 'objId' is being referenced by 'this' or methodName is "", we know we have to retrieve the information from the VarTable
+		# of the class given by className.
+		if refersToClass == True or methodName == "":
+			varTable = classFuncDirTable.getVarTable(className, None, None, None)
 			objVarTableRow = varTable.get(objId) # Obtains the row that contains the information of the object.
 			attributesTable = objVarTableRow.objVarTable # Obtains the VarTable containing the information of all the attributes of the object.
 			return attributesTable.get(varId).address
 		else:
-			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
-			# If the VarTable of the current method does not contain the object with id 'objId', then we know the object is a global
-			# variable and we must find its information in the VarTable of the current class. 
+			varTable = classFuncDirTable.getVarTable(methodName, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+			# If the VarTable of the method given by methodName does not contain the object with id 'objId', then we know the object
+			# is a global variable and we must find its information in the VarTable of the class given by className. 
 			if varTable.has(objId) == False:
-				varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+				varTable = classFuncDirTable.getVarTable(className, None, None, None)
 			objVarTableRow = varTable.get(objId)  # Obtains the row that contains the information of the object.
 			attributesTable = objVarTableRow.objVarTable # Obtains the VarTable containing the information of all the attributes of the object.
 			return attributesTable.get(varId).address
@@ -326,40 +376,46 @@ def getVarAddress(refersToClass, objId, varId):
 # Returns the type that corresponds to a given variable. It is assumed that the existence of the variable and the object
 # (if the variable is inside it) was previously validated by calling checkIfVariableWasDefined() or checkIfObjectHasAttribute(). 
 # Parameters:
+# - className: Name of the class in which the variable will be searched.
 # - refersToClass: True if the variable or the object that contains it was referenced using 'this'. False otherwise.
+# - methodName: Name of the method in which the variable will be searched if refersToClass is false.
 # - objId: Name of the object that contains the variable whose type is desired. It is "" if the variable is not inside an object.
 # - varId: Name of the variable (or attribute, if inside an object) whose type is desired.
-def getVarType(refersToClass, objId, varId):
+def getVarType(className, refersToClass, methodName, objId, varId):
+	classFuncDirTable = classDirTable[className] # Gets the FuncDirTable of the class given by className.
+
 	# If 'objId' is "", we know 'varId' is a simple variable and not an attribute of an object.
 	if objId == "":
-		# If 'varId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
-		if refersToClass == True:
-			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+		# If 'varId' is being referenced by 'this' or methodName is "", we know we have to retrieve the information from the VarTable
+		# of the class given by className.
+		if refersToClass == True or methodName == "":
+			varTable = classFuncDirTable.getVarTable(className, None, None, None)
 			return varTable.get(varId).varType
 		else:
-			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
-			# If the VarTable of the current method does not contain the variable with id 'varId', then we know it is a global
-			# variable and we must find its information in the VarTable of the current class. 
+			varTable = classFuncDirTable.getVarTable(methodName, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+			# If the VarTable of the method given by methodName does not contain the variable with id 'varId', then we know it is a
+			# global variable and we must find its information in the VarTable of the class given by className.
 			if varTable.has(varId):
 				return varTable.get(varId).varType
 			else:
-				varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+				varTable = classFuncDirTable.getVarTable(className, None, None, None)
 				return varTable.get(varId).varType
 	
 	# From here on, we know 'varId' is an attribute of an object.
 	else:
-		# If 'objId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
-		if refersToClass == True:
-			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+		# If 'objId' is being referenced by 'this' or methodName is "", we know we have to retrieve the information from the VarTable
+		# of the class given by className.
+		if refersToClass == True or methodName == "":
+			varTable = classFuncDirTable.getVarTable(className, None, None, None)
 			objVarTableRow = varTable.get(objId) # Obtains the row that contains the information of the object.
 			attributesTable = objVarTableRow.objVarTable # Obtains the VarTable containing the information of all the attributes of the object.
 			return attributesTable.get(varId).varType
 		else:
-			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
-			# If the VarTable of the current method does not contain the object with id 'objId', then we know the object is a global
-			# variable and we must find its information in the VarTable of the current class. 
+			varTable = classFuncDirTable.getVarTable(methodName, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+			# If the VarTable of the method given by methodName does not contain the object with id 'objId', then we know the object
+			# is a global variable and we must find its information in the VarTable of the class given by className. 
 			if varTable.has(objId) == False:
-				varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+				varTable = classFuncDirTable.getVarTable(className, None, None, None)
 			objVarTableRow = varTable.get(objId)  # Obtains the row that contains the information of the object.
 			attributesTable = objVarTableRow.objVarTable # Obtains the VarTable containing the information of all the attributes of the object.
 			return attributesTable.get(varId).varType
@@ -368,40 +424,46 @@ def getVarType(refersToClass, objId, varId):
 # Returns a tuple with the dimensions (x, y) corresponding to a given variable. It is assumed that the existence of the variable and the
 # object (if the variable is inside it) was previously validated by calling checkIfVariableWasDefined() or checkIfObjectHasAttribute(). 
 # Parameters:
+# - className: Name of the class in which the variable will be searched.
 # - refersToClass: True if the variable or the object that contains it was referenced using 'this'. False otherwise.
+# - methodName: Name of the method in which the variable will be searched if refersToClass is false.
 # - objId: Name of the object that contains the variable whose dimensions are desired. It is "" if the variable is not inside an object.
 # - varId: Name of the variable (or attribute, if inside an object) whose dimensions are desired.
-def getVarDims(refersToClass, objId, varId):
+def getVarDims(className, refersToClass, methodName, objId, varId):
+	classFuncDirTable = classDirTable[className] # Gets the FuncDirTable of the class given by className.
+
 	# If 'objId' is "", we know 'varId' is a simple variable and not an attribute of an object.
 	if objId == "":
-		# If 'varId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
-		if refersToClass == True:
-			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+		# If 'varId' is being referenced by 'this' or methodName is "", we know we have to retrieve the information from the VarTable
+		# of the class given by className.
+		if refersToClass == True or methodName == "":
+			varTable = classFuncDirTable.getVarTable(className, None, None, None)
 			return (varTable.get(varId).dimX, varTable.get(varId).dimY)
 		else:
-			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
-			# If the VarTable of the current method does not contain the variable with id 'varId', then we know it is a global
-			# variable and we must find its information in the VarTable of the current class. 
+			varTable = classFuncDirTable.getVarTable(methodName, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+			# If the VarTable of the method given by methodName does not contain the variable with id 'varId', then we know it is a
+			# global variable and we must find its information in the VarTable of the class given by className.
 			if varTable.has(varId):
 				return (varTable.get(varId).dimX, varTable.get(varId).dimY)
 			else:
-				varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+				varTable = classFuncDirTable.getVarTable(className, None, None, None)
 				return (varTable.get(varId).dimX, varTable.get(varId).dimY)
 	
 	# From here on, we know 'varId' is an attribute of an object.
 	else:
-		# If 'objId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
+		# If 'objId' is being referenced by 'this' or methodName is "", we know we have to retrieve the information from the VarTable
+		# of the class given by className.
 		if refersToClass == True:
-			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+			varTable = classFuncDirTable.getVarTable(className, None, None, None)
 			objVarTableRow = varTable.get(objId) # Obtains the row that contains the information of the object.
 			attributesTable = objVarTableRow.objVarTable # Obtains the VarTable containing the information of all the attributes of the object.
 			return (attributesTable.get(varId).dimX, attributesTable.get(varId).dimY)
 		else:
-			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
-			# If the VarTable of the current method does not contain the object with id 'objId', then we know the object is a global
-			# variable and we must find its information in the VarTable of the current class. 
+			varTable = classFuncDirTable.getVarTable(methodName, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+			# If the VarTable of the method given by methodName does not contain the object with id 'objId', then we know the object
+			# is a global variable and we must find its information in the VarTable of the class given by className. 
 			if varTable.has(objId) == False:
-				varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+				varTable = classFuncDirTable.getVarTable(className, None, None, None)
 			objVarTableRow = varTable.get(objId)  # Obtains the row that contains the information of the object.
 			attributesTable = objVarTableRow.objVarTable # Obtains the VarTable containing the information of all the attributes of the object.
 			return (attributesTable.get(varId).dimX, attributesTable.get(varId).dimY)
@@ -821,7 +883,7 @@ def p_np_vars_1(p):
 	'''np_vars_1	:'''
 	dimX = -1
 	dimY = -1
-	validateAndAddVarsToScope(dimX, dimY)
+	validateAndAddVarsToScope(dimX, dimY, p)
 
 def p_np_vars_2(p):
 	'''np_vars_2	:'''
@@ -830,7 +892,7 @@ def p_np_vars_2(p):
 	dimY = -1
 	currentType = p[-1]
 	checkIfClassExists(currentType, p)
-	validateAndAddVarsToScope(dimX, dimY)
+	validateAndAddVarsToScope(dimX, dimY, p)
 
 def p_np_vars_3(p):
 	'''np_vars_3	:'''
@@ -845,7 +907,7 @@ def p_np_vars_5(p):
 	'''np_vars_5	:'''
 	global refersToClass
 	# refersToClass is set to false since all the variables declared do not use 'this'.
-	# It is necessary to do this so that getVarAddress(id) works properly in this method.
+	# It is necessary to do this so that getVarAddress() works properly in this method.
 	refersToClass = False
 	currentOp = quadManager.popOp()
 	expressionValue = quadManager.popOper()
@@ -855,8 +917,8 @@ def p_np_vars_5(p):
 	if codeToType.get(answerType) == "error":
 		print("Error: Type mismatch in line %d" % (p.lexer.lineno))
 		sys.exit(0)
-	for id in currentVarIds:
-		address = getVarAddress(refersToClass, "", id)
+	for varId in currentVarIds:
+		address = getVarAddress(currentClass, refersToClass, currentMethod, "", varId)
 		quadManager.addQuad(currentOp, -1, expressionValue, address)
 
 def p_np_vars_6(p):
@@ -881,7 +943,7 @@ def p_np_vector_1(p):
 	if dimX == 0:
 		print("Error: Vectors at line %d must have a positive integer size." % (p.lexer.lineno))
 		sys.exit(0)
-	validateAndAddVarsToScope(dimX, dimY)
+	validateAndAddVarsToScope(dimX, dimY, p)
 
 def p_np_vector_2(p):
 	'''np_vector_2	:'''
@@ -904,32 +966,13 @@ def p_np_matrix_1(p):
 	if dimX == 0 or dimY == 0:
 		print("Error: Matrices at line %d must have a positive integer size in each dimension." % (p.lexer.lineno))
 		sys.exit(0)
-	validateAndAddVarsToScope(dimX, dimY)
+	validateAndAddVarsToScope(dimX, dimY, p)
 
 def p_np_matrix_2(p):
 	'''np_matrix_2	:'''
 	global currentVarIds
 	currentVarIds[:] = []
 
-#NEURAL POINTS FOR ID_ACCESS
-# TODO: Possibly refactor this into a method (it is very similar to checkIfVariableWasDefined)
-# def p_np_id_access_1(p):
-# 	'''np_id_access_1	:'''
-# 	if refersToClass == True or currentMethod == "":
-# 		varTable = funcDirTable.getVarTable(currentClass, None, None, None)
-# 		primType = varTable.get(currentVarId).varType
-# 		if primType != typeToCode.get("object"):
-# 			print("Error: Cannot use the '.' operator with '%s', because it is not of object type" % (currentVarId))
-# 			sys.exit(0)
-# 	else:
-# 		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
-# 		primType = varTable.get(currentVarId).varType
-# 		if primType != typeToCode.get("object"):
-# 			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
-# 			primType = varTable.get(currentVarId).varType
-# 			if primType != typeToCode.get("object"):
-# 				print("Error: Cannot use the '.' operator with '%s', because it is not of object type" % (currentVarId))
-# 				sys.exit(0)
 
 #ASSIGNMENT
 def p_assignment(p):
@@ -951,10 +994,10 @@ def p_np_assignment_1(p):
 	global currentVarId, frontObjectAccessed
 	frontObjectAccessed = "" # There is no frontObjectAccessed since there is no expression like: ID.ID or this.ID.ID
 	currentVarId = p[-1]
-	checkIfVariableWasDefined(currentVarId)
-	quadManager.pushOper(getVarAddress(refersToClass, frontObjectAccessed, currentVarId))
-	quadManager.pushType(getVarType(refersToClass, frontObjectAccessed, currentVarId))
-	stackDimSizes.push(getVarDims(refersToClass, frontObjectAccessed, currentVarId))
+	checkIfVariableWasDefined(currentClass, refersToClass, currentMethod, currentVarId, p)
+	quadManager.pushOper(getVarAddress(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
+	quadManager.pushType(getVarType(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
+	stackDimSizes.push(getVarDims(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
 
 def p_np_assignment_2(p):
 	'''np_assignment_2	:'''
@@ -980,11 +1023,25 @@ def p_np_assignment_4(p):
 	global currentVarId, frontObjectAccessed
 	frontObjectAccessed = p[-3] # This is the first ID in an expression like the following: ID.ID or this.ID.ID
 	currentVarId = p[-1] # This is the second ID in an expression like the following: ID.ID or this.ID.ID
-	checkIfVariableWasDefined(frontObjectAccessed)
-	checkIfObjectHasAttribute(frontObjectAccessed, currentVarId, p)
-	quadManager.pushOper(getVarAddress(refersToClass, frontObjectAccessed, currentVarId))
-	quadManager.pushType(getVarType(refersToClass, frontObjectAccessed, currentVarId))
-	stackDimSizes.push(getVarDims(refersToClass, frontObjectAccessed, currentVarId))
+	# If frontObjectAccessed is the name of a class, handles the case of trying to use an independent variable of the
+	# class.
+	# TODO: This code repeats in 3 places, it might be convenient to separate it into its own function.
+	if frontObjectAccessed in classDirTable:
+		if refersToClass:
+			print("Error: Cannot use 'this' on '%s' in line %d." % (frontObjectAccessed, p.lexer.lineno))
+			sys.exit(0)
+		checkIfVariableWasDefined(frontObjectAccessed, refersToClass, "", currentVarId, p)
+		checkIfVariableIsIndependent(frontObjectAccessed, currentVarId, p)
+		quadManager.pushOper(getVarAddress(frontObjectAccessed, refersToClass, "", "", currentVarId))
+		quadManager.pushType(getVarType(frontObjectAccessed, refersToClass, "", "", currentVarId))
+		stackDimSizes.push(getVarDims(frontObjectAccessed, refersToClass, "", "", currentVarId))
+	# Case in which an attribute of an object is trying to be accessed.
+	else:
+		checkIfVariableWasDefined(currentClass, refersToClass, currentMethod, frontObjectAccessed, p)
+		checkIfObjectHasAttribute(frontObjectAccessed, currentVarId, p)
+		quadManager.pushOper(getVarAddress(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
+		quadManager.pushType(getVarType(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
+		stackDimSizes.push(getVarDims(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
 
 
 #THIS
@@ -1361,8 +1418,8 @@ def p_np_func_call_3(p):
 	# Checks if the function is being called from an object (this also applies if the function is a constructor).
 	if callingObject != "":
 		# If the function is a constructor, firstObject might have data.
-		# If the function is not a constructor, firstObject will allways be an empty string.
-		callingObjectClass = getVarType(refersToClass, firstObject, callingObject) # Gets the class of the calling object.
+		# If the function is not a constructor, firstObject will always be an empty string.
+		callingObjectClass = getVarType(currentClass, refersToClass, currentMethod, firstObject, callingObject) # Gets the class of the calling object.
 		classFuncDirTable = classDirTable[callingObjectClass] # Gets the FuncDirTable of the class of the calling object.
 		# Validates that the function exists in the class of the calling object.
 		if classFuncDirTable.has(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY)) == False:
@@ -1572,9 +1629,9 @@ def p_np_for_loop_3(p):
 	expressionType = quadManager.popType()
 	stackDimSizes.pop()
 	forVarId = p[-3] # p[-3] is ID of variable to be assigned to.
-	forVarIdAddress = getVarAddress(refersToClass, "", forVarId)
-	forVarIdTypePrimType = getVarType(refersToClass, "", p[-3])
-	if semanticCube.checkType(operToCode.get("="), expressionType, forVarIdTypePrimType) == typeToCode.get("error"):
+	forVarIdAddress = getVarAddress(currentClass, refersToClass, currentMethod, "", forVarId)
+	forVarIdType = getVarType(currentClass, refersToClass, currentMethod, "", p[-3])
+	if semanticCube.checkType(operToCode.get("="), expressionType, forVarIdType) == typeToCode.get("error"):
 		print("Error: Type mismatch in line %d" % (p.lexer.lineno))
 		sys.exit(0)
 	quadManager.addQuad(operToCode.get("="), -1, expressionAns, forVarIdAddress) 
@@ -1647,10 +1704,10 @@ def p_np_in_out_2(p):
 	global currentVarId, frontObjectAccessed
 	frontObjectAccessed = ""
 	currentVarId = p[-1]
-	checkIfVariableWasDefined(currentVarId)
-	quadManager.pushOper(getVarAddress(refersToClass, frontObjectAccessed, currentVarId))
-	quadManager.pushType(getVarType(refersToClass, frontObjectAccessed, currentVarId))
-	stackDimSizes.push(getVarDims(refersToClass, frontObjectAccessed, currentVarId))
+	checkIfVariableWasDefined(currentClass, refersToClass, currentMethod, currentVarId, p)
+	quadManager.pushOper(getVarAddress(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
+	quadManager.pushType(getVarType(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
+	stackDimSizes.push(getVarDims(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
 
 def p_np_in_out_3(p):
 	'''np_in_out_3	:'''
@@ -1676,11 +1733,24 @@ def p_np_in_out_5(p):
 	global currentVarId, frontObjectAccessed
 	frontObjectAccessed = p[-3]
 	currentVarId = p[-1]
-	checkIfVariableWasDefined(frontObjectAccessed)
-	checkIfObjectHasAttribute(frontObjectAccessed, currentVarId, p)
-	quadManager.pushOper(getVarAddress(refersToClass, frontObjectAccessed, currentVarId))
-	quadManager.pushType(getVarType(refersToClass, frontObjectAccessed, currentVarId))
-	stackDimSizes.push(getVarDims(refersToClass, frontObjectAccessed, currentVarId))
+	# If frontObjectAccessed is the name of a class, handles the case of trying to use an independent variable of the
+	# class.
+	if frontObjectAccessed in classDirTable:
+		if refersToClass:
+			print("Error: Cannot use 'this' on '%s' in line %d." % (frontObjectAccessed, p.lexer.lineno))
+			sys.exit(0)
+		checkIfVariableWasDefined(frontObjectAccessed, refersToClass, "", currentVarId, p)
+		checkIfVariableIsIndependent(frontObjectAccessed, currentVarId, p)
+		quadManager.pushOper(getVarAddress(frontObjectAccessed, refersToClass, "", "", currentVarId))
+		quadManager.pushType(getVarType(frontObjectAccessed, refersToClass, "", "", currentVarId))
+		stackDimSizes.push(getVarDims(frontObjectAccessed, refersToClass, "", "", currentVarId))
+	# Case in which an attribute of an object is trying to be accessed.
+	else:
+		checkIfVariableWasDefined(currentClass, refersToClass, currentMethod, frontObjectAccessed, p)
+		checkIfObjectHasAttribute(frontObjectAccessed, currentVarId, p)
+		quadManager.pushOper(getVarAddress(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
+		quadManager.pushType(getVarType(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
+		stackDimSizes.push(getVarDims(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
 
 #RETURN
 def p_return(p):
@@ -1925,10 +1995,10 @@ def p_np_factor_8(p):
 	global currentVarId, frontObjectAccessed
 	frontObjectAccessed = ""
 	currentVarId = p[-1]
-	checkIfVariableWasDefined(currentVarId)
-	quadManager.pushOper(getVarAddress(refersToClass, frontObjectAccessed, currentVarId))
-	quadManager.pushType(getVarType(refersToClass, frontObjectAccessed, currentVarId))
-	stackDimSizes.push(getVarDims(refersToClass, frontObjectAccessed, currentVarId))
+	checkIfVariableWasDefined(currentClass, refersToClass, currentMethod, currentVarId, p)
+	quadManager.pushOper(getVarAddress(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
+	quadManager.pushType(getVarType(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
+	stackDimSizes.push(getVarDims(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
 
 def p_np_factor_9(p):
 	'''np_factor_9	:'''
@@ -1943,11 +2013,24 @@ def p_np_factor_10(p):
 	global currentVarId, frontObjectAccessed
 	frontObjectAccessed = p[-3]
 	currentVarId = p[-1]
-	checkIfVariableWasDefined(frontObjectAccessed)
-	checkIfObjectHasAttribute(frontObjectAccessed, currentVarId, p)
-	quadManager.pushOper(getVarAddress(refersToClass, frontObjectAccessed, currentVarId))
-	quadManager.pushType(getVarType(refersToClass, frontObjectAccessed, currentVarId))
-	stackDimSizes.push(getVarDims(refersToClass, frontObjectAccessed, currentVarId))
+	# If frontObjectAccessed is the name of a class, handles the case of trying to use an independent variable of the
+	# class.
+	if frontObjectAccessed in classDirTable:
+		if refersToClass:
+			print("Error: Cannot use 'this' on '%s' in line %d." % (frontObjectAccessed, p.lexer.lineno))
+			sys.exit(0)
+		checkIfVariableWasDefined(frontObjectAccessed, refersToClass, "", currentVarId, p)
+		checkIfVariableIsIndependent(frontObjectAccessed, currentVarId, p)
+		quadManager.pushOper(getVarAddress(frontObjectAccessed, refersToClass, "", "", currentVarId))
+		quadManager.pushType(getVarType(frontObjectAccessed, refersToClass, "", "", currentVarId))
+		stackDimSizes.push(getVarDims(frontObjectAccessed, refersToClass, "", "", currentVarId))
+	# Case in which an attribute of an object is trying to be accessed.
+	else:
+		checkIfVariableWasDefined(currentClass, refersToClass, currentMethod, frontObjectAccessed, p)
+		checkIfObjectHasAttribute(frontObjectAccessed, currentVarId, p)
+		quadManager.pushOper(getVarAddress(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
+		quadManager.pushType(getVarType(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
+		stackDimSizes.push(getVarDims(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
 
 def p_np_factor_11(p):
 	'''np_factor_11	:'''

@@ -34,7 +34,7 @@ Main {
     print(p.estatica1);
 
     p2.estatica1 = 5;
-    Patito.estatica1 = Patito.estatica1 + 2;
+    Patito.x = 10;
 
     print(p2.estatica1);
     print(p.estatica1);
