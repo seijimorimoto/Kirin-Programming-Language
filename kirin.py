@@ -529,9 +529,10 @@ def executeQuad(quad):
   
   # OPER -> LOAD_REF
   if quad[0] == operToCode.get("LOAD_REF"):
-    value = queueRefs.front()
+    targetStackLevel, targetAddress = queueRefs.front()
     queueRefs.pop()
-    stackDicReferences[currentStackLevel][quad[3]] = value
+    for i in range(quad[1]):
+      stackDicReferences[currentStackLevel][quad[3] + i] = (targetStackLevel, targetAddress + i)
 
   # OPER -> RETURN
   if quad[0] == operToCode.get("RETURN"):
@@ -602,7 +603,7 @@ def executeQuad(quad):
       # Get the target stack level and the target address pointed by address.
         targetStackLevel, targetAddress = stackDicReferences[currentStackLevel][address]
         # If the targetAddress exists in the memory of the target stack level, then
-        # delele it.
+        # delete it.
         if targetAddress in memStack[targetStackLevel]:
           del memStack[targetStackLevel][targetAddress]
       # If the address (that doesn't point to another address) exists in the memory of the

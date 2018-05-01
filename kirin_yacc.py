@@ -1309,15 +1309,12 @@ def p_np_method_6(p):
 
 			# If the type of the parameter is an object or if it is a vector or matrix, then we know we have
 			# to load the parameter as a reference.
-			if currentParamDimsY[index] != -1:
-				for _ in range(currentParamDimsX[index]):
-					for _ in range(currentParamDimsY[index]):
-						quadManager.addQuad(operToCode.get("LOAD_REF"), -1, -1, address)
-						address = address + 1
-			elif currentParamDimsX[index] != -1:
-				for _ in range(currentParamDimsX[index]):
-					quadManager.addQuad(operToCode.get("LOAD_REF"), -1, -1, address)
-					address = address + 1
+			if currentParamDimsX[index] != -1:
+				if currentParamDimsY[index] != -1:
+					numOfAddresses = currentParamDimsX[index] * currentParamDimsY[index]
+				else:
+					numOfAddresses = currentParamDimsX[index]
+				quadManager.addQuad(operToCode.get("LOAD_REF"), numOfAddresses, -1, address)
 			# TODO: Check this when implementing passing of objects as parameters.
 			elif type(currentParamTypes[index]) is str:
 				quadManager.addQuad(operToCode.get("LOAD_REF"), -1, -1, address)
@@ -1499,20 +1496,13 @@ def p_np_func_call_3(p):
 	funcStartPos = funcDirRow.startPos
 	funcType = funcDirRow.blockType
 
-	# Iterate over the parameters that are going to be send, so as to generate the corresponding quadruples (PPARAM or PARAM_REF).
+	# Iterate over the parameters that are going to be send, so as to generate the corresponding quadruples (PARAM or PARAM_REF).
 	for index in range(len(currentParamsToBeSend)):
 		# If the type of the parameter is an object or if it is a vector or matrix, then we know we have
 		# to load the parameter as a reference.
 		address = currentParamsToBeSend[index]
-		if localParamDimsY[index] != -1:
-			for _ in range(localParamDimsX[index]):
-				for _ in range(localParamDimsY[index]):
-					quadManager.addQuad(operToCode.get("PARAM_REF"), -1, -1, address)
-					address = address + 1
-		elif localParamDimsX[index] != -1:
-			for _ in range(localParamDimsX[index]):
-				quadManager.addQuad(operToCode.get("PARAM_REF"), -1, -1, address)
-				address = address + 1
+		if localParamDimsX[index] != -1:
+			quadManager.addQuad(operToCode.get("PARAM_REF"), -1, -1, address)
 		# TODO: Implement passing of objects as references.
 		elif currentParamsTypesToBeSend[index] == typeToCode.get("object"):
 			quadManager.addQuad(operToCode.get("PARAM_REF"), -1, -1, address)
