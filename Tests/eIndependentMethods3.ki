@@ -1,0 +1,17 @@
+class Math {
+  private var num1, num2 : int;
+
+  private_func int add() {
+    return num1 + num2;
+  }
+
+  public_func independent double doSomething() {
+    return add();
+  }
+}
+
+Main {
+  public_func independent void main() {
+    print(Math.doSomething());
+  }
+}

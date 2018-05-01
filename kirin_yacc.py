@@ -230,7 +230,7 @@ def validateAndAddVarsToScope(dimX, dimY, p):
 				sys.exit(0)	
 			address = getNextAddress(currentType, "local", dimX, dimY)
 			objVarTable = getNewObjVarTable(currentType, "local")
-			newVarTableRow = VarTableRow(currentType, None, None, address, dimX, dimY, objVarTable)
+			newVarTableRow = VarTableRow(currentType, isCurrentVarIndependent, isCurrentVarPrivate, address, dimX, dimY, objVarTable)
 			varTable.add(currentVarId, newVarTableRow)
 
 
@@ -316,19 +316,32 @@ def checkIfObjectHasAttribute(objId, attrId, p):
 			print("Error: Cannot access private attribute '%s' of object '%s' in line %d." % (attrId, objId, p.lexer.lineno))
 			sys.exit(0)
 
-# Checks if a given variable is independent.
+# Checks if a given variable is independent. Note that a local variable inside an independent method is considered
+# independent as well.
 # Finalizes program execution if the variable is not independent.
 # Parameters:
 # - className: Name of the class in which the variable will be searched.
+# - methodName: Name of the method in which the variable will be searched. It is "" if the variable is to be searched in
+#   the global variables of the class given by className.
 # - varId: Name of the variable whose "independent" status will be checked. 
 # - p: Yacc variable used for displaying "line number" information in case of errors.
-def checkIfVariableIsIndependent(className, varId, p):
+def checkIfVariableIsIndependent(className, methodName, varId, p):
 	classFuncDirTable = classDirTable[className]
-	classVarTable = classFuncDirTable.getVarTable(className, None, None, None)
-	varTableRow = classVarTable.get(varId)
-	if not varTableRow.isIndependent:
-		print("Error: Cannot use '%s.%s' in line %d because '%s' is not an independent variable." % (className, varId, p.lexer.lineno, varId))
-		sys.exit(0)
+	if methodName == "":
+		classVarTable = classFuncDirTable.getVarTable(className, None, None, None)
+		varTableRow = classVarTable.get(varId)
+		if not varTableRow.isIndependent:
+			print("Error: Cannot use '%s.%s' in line %d because '%s' is not an independent variable." % (className, varId, p.lexer.lineno, varId))
+			sys.exit(0)
+	else:
+		varTable = classFuncDirTable.getVarTable(methodName, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+		# If there is not a variable in the method given by methodName, search it in the VarTable of the class given by className.
+		if varTable.has(varId) == False:
+			varTable = classFuncDirTable.getVarTable(className, None, None, None)
+		varTableRow = varTable.get(varId)
+		if not varTableRow.isIndependent:
+			print("Error: Cannot use '%s' in line %d because it is not an independent variable." % (varId, p.lexer.lineno))
+			sys.exit(0)
 
 # Returns the memory address that corresponds to a given variable. It is assumed that the existence of the variable and the object
 # (if the variable is inside it) was previously validated by calling checkIfVariableWasDefined() or checkIfObjectHasAttribute(). 
@@ -901,21 +914,25 @@ def p_met_acc_dependent(p):
 #NEURAL POINTS FOR METHOD_ACCESS
 def p_np_method_access_1(p):
 	'''np_method_access_1	:'''
-	global isCurrentMethodPrivate, isCurrentMethodIndependent
+	global isCurrentMethodPrivate, isCurrentVarPrivate
 	if p[-1] == "public_func":
 		isCurrentMethodPrivate = False
+		isCurrentVarPrivate = False
 	else:
 		isCurrentMethodPrivate = True
+		isCurrentVarPrivate = True
 
 def p_np_method_access_2(p):
 	'''np_method_access_2	:'''
-	global isCurrentMethodIndependent
+	global isCurrentMethodIndependent, isCurrentVarIndependent
 	isCurrentMethodIndependent = True
+	isCurrentVarIndependent = True
 
 def p_np_method_access_3(p):
 	'''np_method_access_3	:'''
-	global isCurrentMethodIndependent
+	global isCurrentMethodIndependent, isCurrentVarIndependent
 	isCurrentMethodIndependent = False
+	isCurrentVarIndependent = False
 
 #IDS
 def p_ids(p):
@@ -1063,6 +1080,9 @@ def p_np_assignment_1(p):
 	destObject = p[-1]
 	destRefersToClass = refersToClass
 	checkIfVariableWasDefined(currentClass, refersToClass, currentMethod, currentVarId, p)
+	# Verifies that the variable is independent in case we are in an independent context.
+	if isCurrentMethodIndependent:
+		checkIfVariableIsIndependent(currentClass, currentMethod, currentVarId, p)
 	quadManager.pushOper(getVarAddress(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
 	quadManager.pushType(getVarType(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
 	stackDimSizes.push(getVarDims(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
@@ -1115,13 +1135,16 @@ def p_np_assignment_4(p):
 			print("Error: Cannot use 'this' on '%s' in line %d." % (frontObjectAccessed, p.lexer.lineno))
 			sys.exit(0)
 		checkIfVariableWasDefined(frontObjectAccessed, refersToClass, "", currentVarId, p)
-		checkIfVariableIsIndependent(frontObjectAccessed, currentVarId, p)
+		checkIfVariableIsIndependent(frontObjectAccessed, "", currentVarId, p)
 		quadManager.pushOper(getVarAddress(frontObjectAccessed, refersToClass, "", "", currentVarId))
 		quadManager.pushType(getVarType(frontObjectAccessed, refersToClass, "", "", currentVarId))
 		stackDimSizes.push(getVarDims(frontObjectAccessed, refersToClass, "", "", currentVarId))
 	# Case in which an attribute of an object is trying to be accessed.
 	else:
 		checkIfVariableWasDefined(currentClass, refersToClass, currentMethod, frontObjectAccessed, p)
+		# Verifies that the object is independent in case we are in an independent context.
+		if isCurrentMethodIndependent:
+			checkIfVariableIsIndependent(currentClass, currentMethod, frontObjectAccessed, p)
 		checkIfObjectHasAttribute(frontObjectAccessed, currentVarId, p)
 		quadManager.pushOper(getVarAddress(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
 		quadManager.pushType(getVarType(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
@@ -1138,6 +1161,9 @@ def p_np_this_1(p):
 	'''np_this_1	:'''
 	global refersToClass
 	refersToClass = True
+	if isCurrentMethodIndependent:
+		print("Error: Cannot use 'this' in line %d because of independent context." % (p.lexer.lineno))
+		sys.exit(0)
 
 def p_np_this_2(p):
 	'''np_this_2	:'''
@@ -1352,7 +1378,7 @@ def p_np_method_6(p):
 		else:
 			address = getNextAddress(currentParamTypes[index], "local", currentParamDimsX[index], currentParamDimsY[index])
 			objVarTable = getNewObjVarTable(currentParamTypes[index], "local")
-			newVarTableRow = VarTableRow(currentParamTypes[index], None, None, address, currentParamDimsX[index], currentParamDimsY[index], objVarTable)
+			newVarTableRow = VarTableRow(currentParamTypes[index], isCurrentVarIndependent, isCurrentVarPrivate, address, currentParamDimsX[index], currentParamDimsY[index], objVarTable)
 			varTable.add(currentParamIds[index], newVarTableRow)
 
 			# If the type of the parameter is an object or if it is a vector or matrix, then we know we have
@@ -1534,13 +1560,19 @@ def p_np_func_call_3(p):
 				resetObjAttr(objVarTable)
 			mapObjAttrToClassAttr(objVarTable, classVarTable)
 	
-	# If the function is not being called from an object, we only check if the function exists in the currentClass and obtain
-	# its information (i.e. its funcDirRow), without mapping or resetting attributes.
+	# If the function is not being called from an object, we check if the function exists in the currentClass, if it is 
+	# independent (in case we are in an independent context) and obtain its information (i.e. its funcDirRow), without
+	# mapping or resetting attributes.
 	else:
 		if funcDirTable.has(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY)) == False:
 			print("Error: Function '%s' with the arguments used in line %d was not defined." % (funcName, p.lexer.lineno))
 			sys.exit(0)
 		funcDirRow = funcDirTable.getFuncDirRow(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY))
+
+		# If we are in an independent context and the function being called is not independent, then it is an error.
+		if isCurrentMethodIndependent and not funcDirRow.isIndependent:
+			print("Error: Cannot call '%s' from an independent context in line %d." % (funcName, p.lexer.lineno))
+			sys.exit(0)
 	
 	funcStartPos = funcDirRow.startPos
 	funcType = funcDirRow.blockType
@@ -1630,6 +1662,9 @@ def p_np_statement_2(p):
 	# variable defined in the currentClass.
 	if callingObjName not in classDirTable:
 		checkIfVariableWasDefined(currentClass, refersToClass, currentMethod, callingObjName, p)
+		# If the current context is independent, check if the calling object is independent.
+		if isCurrentMethodIndependent:
+			checkIfVariableIsIndependent(currentClass, currentMethod, callingObjName, p)
 	stackFunctionCalls.push((refersToClass, firstObject, callingObjName, funcName))
 
 def p_np_statement_3(p):
@@ -1807,6 +1842,9 @@ def p_np_in_out_2(p):
 	frontObjectAccessed = ""
 	currentVarId = p[-1]
 	checkIfVariableWasDefined(currentClass, refersToClass, currentMethod, currentVarId, p)
+	# Verifies that the variable is independent in case we are in an independent context.
+	if isCurrentMethodIndependent:
+		checkIfVariableIsIndependent(currentClass, currentMethod, currentVarId, p)
 	quadManager.pushOper(getVarAddress(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
 	quadManager.pushType(getVarType(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
 	stackDimSizes.push(getVarDims(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
@@ -1842,13 +1880,16 @@ def p_np_in_out_5(p):
 			print("Error: Cannot use 'this' on '%s' in line %d." % (frontObjectAccessed, p.lexer.lineno))
 			sys.exit(0)
 		checkIfVariableWasDefined(frontObjectAccessed, refersToClass, "", currentVarId, p)
-		checkIfVariableIsIndependent(frontObjectAccessed, currentVarId, p)
+		checkIfVariableIsIndependent(frontObjectAccessed, "", currentVarId, p)
 		quadManager.pushOper(getVarAddress(frontObjectAccessed, refersToClass, "", "", currentVarId))
 		quadManager.pushType(getVarType(frontObjectAccessed, refersToClass, "", "", currentVarId))
 		stackDimSizes.push(getVarDims(frontObjectAccessed, refersToClass, "", "", currentVarId))
 	# Case in which an attribute of an object is trying to be accessed.
 	else:
 		checkIfVariableWasDefined(currentClass, refersToClass, currentMethod, frontObjectAccessed, p)
+			# Verifies that the object is independent in case we are in an independent context.
+		if isCurrentMethodIndependent:
+			checkIfVariableIsIndependent(currentClass, currentMethod, frontObjectAccessed, p)
 		checkIfObjectHasAttribute(frontObjectAccessed, currentVarId, p)
 		quadManager.pushOper(getVarAddress(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
 		quadManager.pushType(getVarType(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
@@ -2098,6 +2139,9 @@ def p_np_factor_8(p):
 	frontObjectAccessed = ""
 	currentVarId = p[-1]
 	checkIfVariableWasDefined(currentClass, refersToClass, currentMethod, currentVarId, p)
+	# Verifies that the variable is independent in case we are in an independent context.
+	if isCurrentMethodIndependent:
+		checkIfVariableIsIndependent(currentClass, currentMethod, currentVarId, p)
 	quadManager.pushOper(getVarAddress(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
 	varType = getVarType(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId)
 	quadManager.pushType(varType)
@@ -2128,7 +2172,7 @@ def p_np_factor_10(p):
 			print("Error: Cannot use 'this' on '%s' in line %d." % (frontObjectAccessed, p.lexer.lineno))
 			sys.exit(0)
 		checkIfVariableWasDefined(frontObjectAccessed, refersToClass, "", currentVarId, p)
-		checkIfVariableIsIndependent(frontObjectAccessed, currentVarId, p)
+		checkIfVariableIsIndependent(frontObjectAccessed, "", currentVarId, p)
 		quadManager.pushOper(getVarAddress(frontObjectAccessed, refersToClass, "", "", currentVarId))
 		varType = getVarType(frontObjectAccessed, refersToClass, "", "", currentVarId)
 		quadManager.pushType(varType)
@@ -2136,6 +2180,9 @@ def p_np_factor_10(p):
 	# Case in which an attribute of an object is trying to be accessed.
 	else:
 		checkIfVariableWasDefined(currentClass, refersToClass, currentMethod, frontObjectAccessed, p)
+		# Verifies that the object is independent in case we are in an independent context.
+		if isCurrentMethodIndependent:
+			checkIfVariableIsIndependent(currentClass, currentMethod, frontObjectAccessed, p)
 		checkIfObjectHasAttribute(frontObjectAccessed, currentVarId, p)
 		quadManager.pushOper(getVarAddress(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
 		varType = getVarType(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId)
@@ -2158,6 +2205,9 @@ def p_np_factor_11(p):
 	# variable defined in the currentClass.
 	if callingObjName not in classDirTable:
 		checkIfVariableWasDefined(currentClass, refersToClass, currentMethod, callingObjName, p)
+		# If the current context is independent, check if the calling object is independent.
+		if isCurrentMethodIndependent:
+			checkIfVariableIsIndependent(currentClass, currentMethod, callingObjName, p)
 	stackFunctionCalls.push((refersToClass, firstObject, callingObjName, funcName))
 
 #ERROR

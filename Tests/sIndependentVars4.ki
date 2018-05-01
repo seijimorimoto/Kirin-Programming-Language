@@ -1,0 +1,55 @@
+class Clase1 {
+  public var num1, num2: int;
+  
+  constructor() {
+      num1 = 0;
+      num2 = 0;
+  }
+
+  public_func void addOne() {
+    num1 = num1 + 1;
+    num2 = num2 + 1;
+  }
+
+  public_func void display() {
+    print(num1, "-", num2);
+  }
+}
+
+class Clase2 {
+  public independent var obj : Clase1;
+  public var num3 : int;
+  
+  constructor() {
+      num3 = 0;
+      obj = new();
+  }
+
+  private_func independent void increaseStaticByOne(c : Clase1) {
+    call obj.addOne();
+  }
+
+  public_func void increaseByOne() {
+    num3 = num3 + 1;
+    call increaseStaticByOne(this.obj);
+  }
+
+  public_func void display() {
+    print(obj.num1, "-", obj.num2, "-", num3);
+  }
+}
+
+Main {
+  public_func independent void main() {
+    var x, y : Clase2;
+    x = new();
+    y = new();
+    
+    call x.increaseByOne();
+    call x.increaseByOne();
+    call y.increaseByOne();
+
+    call x.display();
+    call y.display();
+  }
+}
