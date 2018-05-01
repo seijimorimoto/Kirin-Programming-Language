@@ -612,7 +612,7 @@ def executeQuad(quad):
 
 # Main
 if len(sys.argv) != 2:
-  print("Error: Expected usage is %s name_of_file" %(sys.argv[0]))
+  print("Error: Expected usage is %s name_of_file" % (sys.argv[0]))
   sys.exit(0)
 
 loadQuadList(sys.argv[1])

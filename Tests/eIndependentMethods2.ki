@@ -1,0 +1,15 @@
+class Math {
+  public_func int add(x : int, y : int) {
+    return x + y;
+  }
+
+  public_func independent double circleArea(radius : double) {
+    return 3.1416 * radius * radius;
+  }
+}
+
+Main {
+  public_func independent void main() {
+    print(Math.add(1, 2));
+  }
+}
