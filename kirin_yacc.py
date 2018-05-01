@@ -14,6 +14,7 @@ from varTableRow import VarTableRow
 from semanticCube import SemanticCube
 from quadrupleManager import QuadrupleManager
 from stack import Stack
+from queue import Queue
 from kirinConstants import *
 from kirinMappers import *
 
@@ -62,6 +63,7 @@ stackParamsDimsX = Stack()
 stackParamsDimsY = Stack()
 stackFunctionCalls = Stack()
 stackDimSizes = Stack()
+stackOfQueuesOfObjToBeSend = Stack()
 currentCtType = ""
 isCurrentVarPrivate = True
 isCurrentVarIndependent = False
@@ -456,7 +458,7 @@ def getVarDims(className, refersToClass, methodName, objId, varId):
 	else:
 		# If 'objId' is being referenced by 'this' or methodName is "", we know we have to retrieve the information from the VarTable
 		# of the class given by className.
-		if refersToClass == True:
+		if refersToClass == True or methodName == "":
 			varTable = classFuncDirTable.getVarTable(className, None, None, None)
 			objVarTableRow = varTable.get(objId) # Obtains the row that contains the information of the object.
 			attributesTable = objVarTableRow.objVarTable # Obtains the VarTable containing the information of all the attributes of the object.
@@ -474,42 +476,48 @@ def getVarDims(className, refersToClass, methodName, objId, varId):
 
 # Returns the VarTable containing the attributes of an object.
 # Parameters:
+# - className: Name of the class in which the object will be searched.
 # - refersToClass: True if the object (whose VarTable of attributes is to be returned) was referenced using 'this'. False otherwise.
+# - methodName: Name of the method in which the object will be searched if refersToClass is false.
 # - outerObjId: Name of the object that contains the object whose VarTable of attributes is to be returned. It is "" if the destination
-#   is not contained within another object.
+#   object is not contained within another object.
 # - objId: Name of the object whose VarTable of attributes is to be returned.
-def getAttrVarTable(refersToClass, outerObjId, objId):
+def getAttrVarTable(className, refersToClass, methodName, outerObjId, objId):
+	classFuncDirTable = classDirTable[className] # Gets the FuncDirTable of the class given by className.
+
 	# If 'outerObjId' is "", we know 'objId' is an object that is not within another object.
 	if outerObjId == "":
-		# If 'objId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
-		if refersToClass == True:
-			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+		# If 'objId' is being referenced by 'this' or methodName is "", we know we have to retrieve the information from the VarTable
+		# of the class given by className.
+		if refersToClass == True or methodName == "":
+			varTable = classFuncDirTable.getVarTable(className, None, None, None)
 			objVarTableRow = varTable.get(objId)
 			return objVarTableRow.objVarTable
 		else:
-			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
-			# If the VarTable of the current method does not contain the object with id 'objId', then we know the object is a global
-			# variable and we must find its information in the VarTable of the current class. 
+			varTable = classFuncDirTable.getVarTable(methodName, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+			# If the VarTable of the method given by methodName does not contain the object with id 'objId', then we know it is a
+			# global variable and we must find its information in the VarTable of the class given by className.
 			if varTable.has(objId) == False:
-				varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+				varTable = classFuncDirTable.getVarTable(className, None, None, None)
 			objVarTableRow = varTable.get(objId)
 			return objVarTableRow.objVarTable
 
 	# From here on, we know 'objId' is an object within (i.e. an attribute of) the object 'outerObjId'
 	else:
-		# If 'outerObjId' is being referenced by 'this', we know we have to retrieve the information from the VarTable of the current class.
-		if refersToClass == True:
-			varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+		# If 'outerObjId' is being referenced by 'this' or methodName is "", we know we have to retrieve the information from the VarTable
+		# of the class given by className.
+		if refersToClass == True or methodName == "":
+			varTable = classFuncDirTable.getVarTable(className, None, None, None)
 			outerObjVarTableRow = varTable.get(outerObjId)
 			objVarTable = outerObjVarTableRow.objVarTable # Gets the table of attributes of outer object.
 			objVarTableRow = objVarTable.get(objId)
 			return objVarTableRow.objVarTable # Gets the table of attributes of the inner (desired) object.
 		else:
-			varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
-			# If the VarTable of the current method does not contain the object with id 'outerObjId', then we know the object is a global
-			# variable and we must find its information in the VarTable of the current class. 
+			varTable = classFuncDirTable.getVarTable(methodName, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
+			# If the VarTable of the method given by methodName does not contain the object with id 'outerObjId', then we know it is a
+			# global variable and we must find its information in the VarTable of the class given by className.
 			if varTable.has(outerObjId) == False:
-				varTable = funcDirTable.getVarTable(currentClass, None, None, None)
+				varTable = classFuncDirTable.getVarTable(className, None, None, None)
 			outerObjVarTableRow = varTable.get(outerObjId)
 			objVarTable = outerObjVarTableRow.objVarTable # Gets the table of attributes of outer object.
 			objVarTableRow = objVarTable.get(objId)
@@ -569,7 +577,7 @@ def mapObjAttrToClassAttr(objVarTable, classVarTable):
 	for attrName, attrVarTableRow in objVarTable.table.items():
 		attrType = attrVarTableRow.varType
 		attrIsIndependent = attrVarTableRow.isIndependent
-		# Checks if the object is independent, because it will only map attributes that are dependent.
+		# Checks if the attribute is independent, because it will only map attributes that are dependent.
 		if not attrIsIndependent:
 			# If the type of the attribute represents an object, then we call recursively mapObjAttrToClassAttr, so that
 			# its attributes are also mapped correctly.
@@ -655,6 +663,59 @@ def addInfoFromParentToChildClass(parentClass, childClass):
 			isInherited = True
 			newChildFuncDirRow = FuncDirRow(funcType, isIndependent, isPrivate, isInherited, startPos)
 			childClassFuncDirTable.add(blockId, blockParams, blockDimsX, blockDimsY, newChildFuncDirRow)
+
+
+# Creates a PARAM_REF quadruple with the address of each attribute of a given object.
+# Parameters:
+# - objVarTable: VarTable of the object for which PARAM_REF quadruples will be generated.
+def generateParamRefForObject(objVarTable):
+	# Iterate over each VarTableRow in objVarTable...
+	for attrName, attrVarTableRow in objVarTable.table.items():
+		attrType = attrVarTableRow.varType
+		attrIsIndependent = attrVarTableRow.isIndependent
+		# Checks if the attribute is independent, because it will only generate PARAM_REF for attributes that are dependent.
+		if not attrIsIndependent:
+			# If the type of the attribute represents an object, then we call recursively generateParamRefForObject, so that
+			# PARAM_REF is generated also for its attributes.
+			if type(attrType) is str:
+				innerObjVarTable = attrVarTableRow.objVarTable
+				generateParamRefForObject(innerObjVarTable)
+			else:
+				objAttrAddress = attrVarTableRow.address
+				# Creates the PARAM_REF quadruple for the attribute of the object.
+				quadManager.addQuad(operToCode.get("PARAM_REF"), -1, -1, objAttrAddress)
+
+
+# Creates a LOAD_REF quadruple with the address of each attribute of a given object.
+# Parameters:
+# - objVarTable: VarTable of the object for which LOAD_REF quadruples will be generated.
+def generateLoadRefForObject(objVarTable):
+	# Iterate over each VarTableRow in objVarTable...
+	for attrName, attrVarTableRow in objVarTable.table.items():
+		attrType = attrVarTableRow.varType
+		attrIsIndependent = attrVarTableRow.isIndependent
+		# Checks if the attribute is independent, because it will only generate LOAD_REF for attributes that are dependent.
+		if not attrIsIndependent:
+			# If the type of the attribute represents an object, then we call recursively generateLoadRefForObject, so that
+			# LOAD_REF is generated also for its attributes.
+			if type(attrType) is str:
+				innerObjVarTable = attrVarTableRow.objVarTable
+				generateLoadRefForObject(innerObjVarTable)
+			else:
+				objAttrAddress = attrVarTableRow.address
+				attrDimX = attrVarTableRow.dimX
+				attrDimY = attrVarTableRow.dimY
+				# Sets how many consecutive addresses will be mapped to a single LOAD_PARAM quadruple based on the dimensions
+				# of the attribute. If the attribute has no dimensions (i.e. dimX = -1 and dimY = -1), then 1 consecutive address
+				# is used.
+				if attrDimY != -1:
+					numOfAddresses = attrDimX * attrDimY
+				elif attrDimX != -1:
+					numOfAddresses = attrDimX
+				else:
+					numOfAddresses = 1
+				# Creates the LOAD_REF quadruple for the attribute of the object.
+				quadManager.addQuad(operToCode.get("LOAD_REF"), numOfAddresses, -1, objAttrAddress)
 
 
 def generateQuadForBinaryOperator(operatorList):
@@ -1046,8 +1107,8 @@ def p_np_assignment_3(p):
 		# of the object on the left hand side of the '=' operator. Also, it is guaranteed that refersToClass,
 		# frontObjectAccesses and currentVarId hold the correct information of the object on the right hand side of
 		# '=' operator. This would not be true if more than one assignment could take place in a single line.
-		destObjVarTable = getAttrVarTable(destRefersToClass, destOuterObject, destObject)
-		origObjVarTable = getAttrVarTable(refersToClass, frontObjectAccessed, currentVarId)
+		destObjVarTable = getAttrVarTable(currentClass, destRefersToClass, currentMethod, destOuterObject, destObject)
+		origObjVarTable = getAttrVarTable(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId)
 		mapObjAttrToClassAttr(origObjVarTable, destObjVarTable)
 	
 
@@ -1299,7 +1360,7 @@ def p_np_method_6(p):
 	varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
 	for index in range(len(currentParamIds)):
 		if varTable.has(currentParamIds[index]):
-			print("Error: Parameter '%s' was already defined for '%s' method" % (currentParamIds[index], currentMethod))
+			print("Error: Parameter '%s' was already defined for '%s' method in line %d." % (currentParamIds[index], currentMethod, p.lexer.lineno))
 			sys.exit(0)
 		else:
 			address = getNextAddress(currentParamTypes[index], "local", currentParamDimsX[index], currentParamDimsY[index])
@@ -1317,7 +1378,7 @@ def p_np_method_6(p):
 				quadManager.addQuad(operToCode.get("LOAD_REF"), numOfAddresses, -1, address)
 			# TODO: Check this when implementing passing of objects as parameters.
 			elif type(currentParamTypes[index]) is str:
-				quadManager.addQuad(operToCode.get("LOAD_REF"), -1, -1, address)
+				generateLoadRefForObject(objVarTable)
 			else:
 				quadManager.addQuad(operToCode.get("LOAD_PARAM"), -1, -1, address)
 
@@ -1417,12 +1478,13 @@ def p_more_fpar(p):
 #NEURAL POINTS FOR FUNC_CALL
 def p_np_func_call_1(p):
 	'''np_func_call_1	:'''
-	global stackParamsToBeSend, stackParamsTypesToBeSend
+	global stackParamsToBeSend, stackParamsTypesToBeSend, stackParamsDimsX, stackParamsDimsY, stackOfQueuesOfObjToBeSend
 	quadManager.addQuad(operToCode.get("ERA"), -1, -1, -1)
 	stackParamsToBeSend.push([])
 	stackParamsTypesToBeSend.push([])
 	stackParamsDimsX.push([])
 	stackParamsDimsY.push([])
+	stackOfQueuesOfObjToBeSend.push(Queue())
 	quadManager.pushOp(operToCode.get("("))
 
 def p_np_func_call_2(p):
@@ -1479,7 +1541,7 @@ def p_np_func_call_3(p):
 
 		else:
 			classVarTable = classFuncDirTable.getVarTable(callingObjectClass, None, None, None)
-			objVarTable = getAttrVarTable(refersToClass, firstObject, callingObject)
+			objVarTable = getAttrVarTable(currentClass, refersToClass, currentMethod, firstObject, callingObject)
 			# If the function is a constructor, we need to reset the attributes of the calling object.
 			if funcName == "constructor":
 				resetObjAttr(objVarTable)
@@ -1504,8 +1566,15 @@ def p_np_func_call_3(p):
 		if localParamDimsX[index] != -1:
 			quadManager.addQuad(operToCode.get("PARAM_REF"), -1, -1, address)
 		# TODO: Implement passing of objects as references.
-		elif currentParamsTypesToBeSend[index] == typeToCode.get("object"):
-			quadManager.addQuad(operToCode.get("PARAM_REF"), -1, -1, address)
+		elif type(currentParamsTypesToBeSend[index]) is str:
+			currentQueueOfObjToBeSend = stackOfQueuesOfObjToBeSend.top()
+			refersToClassOfObjToBeSend, outerObjOfObjToBeSend, objToBeSend = currentQueueOfObjToBeSend.front()
+			currentQueueOfObjToBeSend.pop()
+			if outerObjOfObjToBeSend in classDirTable:
+				objAttrTable = getAttrVarTable(outerObjOfObjToBeSend, refersToClassOfObjToBeSend, "", "", objToBeSend)
+			else:
+				objAttrTable = getAttrVarTable(currentClass, refersToClassOfObjToBeSend, currentMethod, outerObjOfObjToBeSend, objToBeSend)
+			generateParamRefForObject(objAttrTable)
 		else:
 			quadManager.addQuad(operToCode.get("PARAM"), -1, -1, address)
 	
@@ -1530,6 +1599,7 @@ def p_np_func_call_4(p):
 	stackParamsTypesToBeSend.pop()
 	stackParamsDimsX.pop()
 	stackParamsDimsY.pop()
+	stackOfQueuesOfObjToBeSend.pop()
 
 #BLOCK
 def p_block(p):
@@ -2042,8 +2112,14 @@ def p_np_factor_8(p):
 	currentVarId = p[-1]
 	checkIfVariableWasDefined(currentClass, refersToClass, currentMethod, currentVarId, p)
 	quadManager.pushOper(getVarAddress(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
-	quadManager.pushType(getVarType(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
+	varType = getVarType(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId)
+	quadManager.pushType(varType)
 	stackDimSizes.push(getVarDims(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
+	# If currentVarId is an object and the stack of queues of objects to be send is not empty, then adds the currentVarId
+	# to the current queue of objects to be send, since we are inside a function call.
+	if type(varType) is str and stackOfQueuesOfObjToBeSend.size() > 0:
+		currentQueueOfObjToBeSend = stackOfQueuesOfObjToBeSend.top()
+		currentQueueOfObjToBeSend.push((refersToClass, frontObjectAccessed, currentVarId))
 
 def p_np_factor_9(p):
 	'''np_factor_9	:'''
@@ -2067,15 +2143,23 @@ def p_np_factor_10(p):
 		checkIfVariableWasDefined(frontObjectAccessed, refersToClass, "", currentVarId, p)
 		checkIfVariableIsIndependent(frontObjectAccessed, currentVarId, p)
 		quadManager.pushOper(getVarAddress(frontObjectAccessed, refersToClass, "", "", currentVarId))
-		quadManager.pushType(getVarType(frontObjectAccessed, refersToClass, "", "", currentVarId))
+		varType = getVarType(frontObjectAccessed, refersToClass, "", "", currentVarId)
+		quadManager.pushType(varType)
 		stackDimSizes.push(getVarDims(frontObjectAccessed, refersToClass, "", "", currentVarId))
 	# Case in which an attribute of an object is trying to be accessed.
 	else:
 		checkIfVariableWasDefined(currentClass, refersToClass, currentMethod, frontObjectAccessed, p)
 		checkIfObjectHasAttribute(frontObjectAccessed, currentVarId, p)
 		quadManager.pushOper(getVarAddress(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
-		quadManager.pushType(getVarType(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
+		varType = getVarType(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId)
+		quadManager.pushType(varType)
 		stackDimSizes.push(getVarDims(currentClass, refersToClass, currentMethod, frontObjectAccessed, currentVarId))
+	
+	# If currentVarId is an object and the stack of queues of objects to be send is not empty, then adds the currentVarId
+	# to the current queue of objects to be send, since we are inside a function call.
+	if type(varType) is str and stackOfQueuesOfObjToBeSend.size() > 0:
+		currentQueueOfObjToBeSend = stackOfQueuesOfObjToBeSend.top()
+		currentQueueOfObjToBeSend.push((refersToClass, frontObjectAccessed, currentVarId))
 
 def p_np_factor_11(p):
 	'''np_factor_11	:'''
