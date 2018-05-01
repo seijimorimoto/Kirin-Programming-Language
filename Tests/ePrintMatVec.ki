@@ -1,0 +1,13 @@
+Main {
+  public_func void main() {
+
+    var i, temp : int;
+    vec myVec1 : int[10];
+    for (i = 0; i < 10; i = i + 1) {
+      scan(temp);
+      myVec1[i] = temp;
+    }
+
+    print(myVec1);
+  }
+}

@@ -1877,7 +1877,16 @@ def p_np_in_out_1(p):
 	'''np_in_out_1	:'''
 	expAddress = quadManager.popOper()
 	expType = quadManager.popType()
-	stackDimSizes.pop()
+	dimX, dimY = stackDimSizes.pop()
+	if type(expType) is str:
+		print("Error: Cannot use a value of type '%s' in a print statement on line %d." % (expType, p.lexer.lineno))
+		sys.exit(0)
+	if expType == typeToCode.get("void"):
+		print("Error: Cannot use a value of type '%s' in a print statement on line %d." % ("void", p.lexer.lineno))
+		sys.exit(0)
+	if dimX != -1:
+		print("Error: Cannot use a vector or matrix in a print statement on line %d." % (p.lexer.lineno))
+		sys.exit(0)
 	operator = operToCode.get('print')
 	quadManager.addQuad(operator, -1, -1, expAddress)
 

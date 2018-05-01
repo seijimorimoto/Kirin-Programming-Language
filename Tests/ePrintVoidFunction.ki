@@ -1,0 +1,28 @@
+Main {
+  public var a, b : int;
+  public var f : double;
+
+  public_func void uno(a : int) {
+    a = a + b * a;
+    print(a, b, a + b);
+  }
+
+  public_func void dos(a : int, b : int, g : double) {
+    var i : int;
+    i = b;
+    while (i > 0) {
+      a = a + b * i + b;
+      call uno(i*2);
+      print(a);
+      i = i - 1;
+    }
+  }
+
+  public_func void main() {
+    a = 3;
+    b = a + 1;
+    f = 3.14;
+    print(dos(a + b * 2, b, f * 3));
+    
+  }
+}
