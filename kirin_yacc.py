@@ -1419,23 +1419,38 @@ def p_np_func_call_3(p):
 	if callingObject != "":
 		# If the function is a constructor, firstObject might have data.
 		# If the function is not a constructor, firstObject will always be an empty string.
-		callingObjectClass = getVarType(currentClass, refersToClass, currentMethod, firstObject, callingObject) # Gets the class of the calling object.
+
+		# If the callingObject is a class, then the callingObjectClass is the same.
+		if callingObject in classDirTable:
+			callingObjectClass = callingObject
+		else:
+			callingObjectClass = getVarType(currentClass, refersToClass, currentMethod, firstObject, callingObject) # Gets the class of the calling object.
+		
 		classFuncDirTable = classDirTable[callingObjectClass] # Gets the FuncDirTable of the class of the calling object.
 		# Validates that the function exists in the class of the calling object.
 		if classFuncDirTable.has(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY)) == False:
 			print("Error: '%s' does not contain the function '%s' with the arguments passed in line %d." % (callingObject, funcName, p.lexer.lineno))
 			sys.exit(0)
+		
 		funcDirRow = classFuncDirTable.getFuncDirRow(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY))
 		# If the function is private and we are trying to call it from outside its class, then it is access denied.
 		if funcDirRow.isPrivate and currentClass != callingObjectClass:
 			print("Error: Cannot call private function '%s' of object '%s' in line %d." % (funcName, callingObject, p.lexer.lineno))
 			sys.exit(0)
-		classVarTable = classFuncDirTable.getVarTable(callingObjectClass, None, None, None)
-		objVarTable = getAttrVarTable(refersToClass, firstObject, callingObject)
-		# If the function is a constructor, we need to reset the attributes of the calling object.
-		if funcName == "constructor":
-			resetObjAttr(objVarTable)
-		mapObjAttrToClassAttr(objVarTable, classVarTable)
+
+		# If the callingObject is a class and the function being called is not independent, then it is an error.
+		if callingObject in classDirTable:
+			if not funcDirRow.isIndependent:
+				print("Error: Cannot call function '%s' in line %d from '%s' because it is not independent." %(funcName, p.lexer.lineno, callingObject))
+				sys.exit(0)
+
+		else:
+			classVarTable = classFuncDirTable.getVarTable(callingObjectClass, None, None, None)
+			objVarTable = getAttrVarTable(refersToClass, firstObject, callingObject)
+			# If the function is a constructor, we need to reset the attributes of the calling object.
+			if funcName == "constructor":
+				resetObjAttr(objVarTable)
+			mapObjAttrToClassAttr(objVarTable, classVarTable)
 	
 	# If the function is not being called from an object, we only check if the function exists in the currentClass and obtain
 	# its information (i.e. its funcDirRow), without mapping or resetting attributes.
@@ -1528,6 +1543,10 @@ def p_np_statement_2(p):
 	funcName = p[-1]
 	firstObject = ""
 	callingObjName = p[-3]
+	# If p[-3] is not in the classDirTable, then it isn't a class name and, therefore, must be a
+	# variable defined in the currentClass.
+	if callingObjName not in classDirTable:
+		checkIfVariableWasDefined(currentClass, refersToClass, currentMethod, callingObjName, p)
 	stackFunctionCalls.push((refersToClass, firstObject, callingObjName, funcName))
 
 def p_np_statement_3(p):
@@ -2037,8 +2056,12 @@ def p_np_factor_11(p):
 	global stackFunctionCalls
 	funcName = p[-1]
 	firstObject = ""
-	callingObject = p[-3]
-	stackFunctionCalls.push((refersToClass, firstObject, callingObject, funcName))
+	callingObjName = p[-3]
+	# If p[-3] is not in the classDirTable, then it isn't a class name and, therefore, must be a
+	# variable defined in the currentClass.
+	if callingObjName not in classDirTable:
+		checkIfVariableWasDefined(currentClass, refersToClass, currentMethod, callingObjName, p)
+	stackFunctionCalls.push((refersToClass, firstObject, callingObjName, funcName))
 
 #ERROR
 def p_error(p):
@@ -2054,13 +2077,24 @@ def p_empty(p):
 	'''empty	: '''
 	pass
 
+
+# Validating arguments read from console.
+if len(sys.argv) != 2:
+	print("Error: Expected usage is %s name_of_file.ki" % (sys.argv[0]))
+	sys.exit(0)
+
+if not sys.argv[1].endswith(".ki"):
+	print("Error: File to compile must have extension .ki")
+	sys.exit(0)
+
 # Creating and running the parser with a file provided by the user.
 parser = yacc.yacc()
-fileName = input("File to analyze: ")
 try:
-	file = open(fileName, 'r')
+	fileNameWithExtension = sys.argv[1]
+	file = open(fileNameWithExtension, 'r')
 	parser.parse(file.read())
-	quadManager.printToFile("quadruples.o")
-	print("Syntax analysis finished.")
+	fileName = fileNameWithExtension[:fileNameWithExtension.rfind(".")]
+	quadManager.printToFile(fileName + ".o")
+	print("Successfully compiled.")
 except OSError:
-	print("The file '%s' does not exist or could not be opened." % (fileName))
+	print("The file '%s' does not exist or could not be opened." % (fileNameWithExtension))
