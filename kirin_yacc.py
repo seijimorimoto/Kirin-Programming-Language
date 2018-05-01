@@ -239,8 +239,9 @@ def checkIfClassExists(className, p):
 		sys.exit(0)
 
 
-# Checks if an object (its class) has a given attribute. It is assumed that the existence of the object received in this function
-# was previously validated by calling checkIfVariableWasDefined() with the parameter objId.
+# Checks if an object has a given attribute and can access it (according to its public/private setting). It is assumed
+# that the existence of the object received in this function was previously validated by calling checkIfVariableWasDefined()
+# with the parameter objId.
 # Parameters:
 # - objId: Name of the object that is going to be checked.
 # - attrId: Name of the attribute whose existence will be checked inside the object with name given by objId.
@@ -255,6 +256,11 @@ def checkIfObjectHasAttribute(objId, attrId, p):
 		if attributesTable.has(attrId) == False:
 			print("Error: '%s' in line %d does not have attribute '%s'." % (objId, p.lexer.lineno, attrId))
 			sys.exit(0)
+		attributeRow = attributesTable.get(attrId)
+		# If the attribute is private and we are trying to access it from outside its class, then it is access denied.
+		if attributeRow.isPrivate and currentClass != attributeRow.varType:
+			print("Error: Cannot access private attribute '%s' of object '%s' in line %d." % (attrId, objId, p.lexer.lineno))
+			sys.exit(0)
 	
 	else:
 		varTable = funcDirTable.getVarTable(currentMethod, tuple(currentParamTypes), tuple(currentParamDimsX), tuple(currentParamDimsY))
@@ -267,6 +273,11 @@ def checkIfObjectHasAttribute(objId, attrId, p):
 		# Checks if the attribute 'attrId' is present in the attributesTable.
 		if attributesTable.has(attrId) == False:
 			print("Error: '%s' in line %d does not have attribute '%s'." % (objId, p.lexer.lineno, attrId))
+			sys.exit(0)
+		attributeRow = attributesTable.get(attrId)
+		# If the attribute is private and we are trying to access it from outside its class, then it is access denied.
+		if attributeRow.isPrivate and currentClass != attributeRow.varType:
+			print("Error: Cannot access private attribute '%s' of object '%s' in line %d." % (attrId, objId, p.lexer.lineno))
 			sys.exit(0)
 	
 
@@ -1342,13 +1353,17 @@ def p_np_func_call_3(p):
 		if classFuncDirTable.has(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY)) == False:
 			print("Error: '%s' does not contain the function '%s' with the arguments passed in line %d." % (callingObject, funcName, p.lexer.lineno))
 			sys.exit(0)
+		funcDirRow = classFuncDirTable.getFuncDirRow(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY))
+		# If the function is private and we are trying to call it from outside its class, then it is access denied.
+		if funcDirRow.isPrivate and currentClass != callingObjectClass:
+			print("Error: Cannot call private function '%s' of object '%s' in line %d." % (funcName, callingObject, p.lexer.lineno))
+			sys.exit(0)
 		classVarTable = classFuncDirTable.getVarTable(callingObjectClass, None, None, None)
 		objVarTable = getAttrVarTable(refersToClass, firstObject, callingObject)
 		# If the function is a constructor, we need to reset the attributes of the calling object.
 		if funcName == "constructor":
 			resetObjAttr(objVarTable)
 		mapObjAttrToClassAttr(objVarTable, classVarTable)
-		funcDirRow = classFuncDirTable.getFuncDirRow(funcName, tuple(currentParamsTypesToBeSend), tuple(localParamDimsX), tuple(localParamDimsY))
 	
 	# If the function is not being called from an object, we only check if the function exists in the currentClass and obtain
 	# its information (i.e. its funcDirRow), without mapping or resetting attributes.
