@@ -1,0 +1,6 @@
+Main {
+  public_func independent void main() {
+    var x, y : int;
+    print(x);
+  }
+}

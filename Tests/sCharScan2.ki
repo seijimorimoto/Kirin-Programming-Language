@@ -1,0 +1,17 @@
+Main {
+  public_func independent void main() {
+    vec str : char[10];
+    var i : int = 0;
+    var c : char = ' ';
+
+    for(i = 0; i < 10; i = i + 1) {
+      str[i] = c;
+    }
+    
+    scan(str);
+
+    for(i = 0; i < 10; i = i + 1) {
+      print(str[i]);
+    }
+  }
+}

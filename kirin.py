@@ -4,6 +4,7 @@
 # Angel Seiji Morimoto Burgos	| A01281380
 
 import sys
+import re
 from stack import Stack
 from queue import Queue
 from kirinConstants import *
@@ -28,6 +29,11 @@ inputBufferCont = 0
 
 # Returns the type (as string) associated to a given address.
 def getType(address):
+  # If address is a reference, check the type of the reference pointed
+  # by address.
+  if address in stackDicReferences[currentStackLevel]:
+    _, targetAddress = stackDicReferences[currentStackLevel][address]
+    address = targetAddress
   if address < CONST_G_BEGIN_DOUBLE:
     return "int"
   if address < CONST_G_BEGIN_CHAR:
@@ -67,20 +73,36 @@ def extractValue(address):
     targetStackLevel, targetAddress = stackDicReferences[currentStackLevel][address]
     # If the targetAddress is global, return directly the value from the memHeap.
     if targetAddress < CONST_LOCAL_START:
+      if targetAddress not in memHeap:
+        print("Runtime Error: Accessed a variable before assigning a value.")
+        sys.exit(0)
       return memHeap[targetAddress]
+    
+    if targetAddress not in memStack[targetStackLevel]:
+      print("Runtime Error: Accessed a variable before assigning a value.")
+      sys.exit(0)
     # Return value contained in the reference.
     return memStack[targetStackLevel][targetAddress]
 
   # Verify if the address is global.
   if address < CONST_LOCAL_START:
+    if address not in memHeap:
+      print("Runtime Error: Accessed a variable before assigning a value.")
+      sys.exit(0)
     return memHeap[address]
   
   # Verify if the address is constant.
   if address >= CONST_CONSTANT_START:
+    if address not in memConst:
+      print("Runtime Error: Accessed a variable before assigning a value.")
+      sys.exit(0)
     return memConst[address]
 
   # Here, we know the address is local.
   # Return value contained in address.
+  if address not in memStack[currentStackLevel]:
+    print("Runtime Error: Accessed a variable before assigning a value.")
+    sys.exit(0)
   return memStack[currentStackLevel][address]
 
 
@@ -115,7 +137,16 @@ def loadQuadList(fileName):
   file = open(fileName, 'r')
   quadList = file.readlines()
   for index in range(len(quadList)):
-    quadList[index] = quadList[index].split(" ")
+    strOrCharConstant = re.search("[\'\"].*[\'\"]", quadList[index])
+    if strOrCharConstant is None:
+      quadList[index] = quadList[index].split(" ")
+    else:
+      strOrCharConstant = strOrCharConstant.group()[1:-1]
+      firstTwoPos, fourthPos = re.split("[\'\"].*[\'\"]", quadList[index])
+      firstTwoPos = firstTwoPos.strip()
+      fourthPos = fourthPos.strip()
+      firstPos, secondPos = firstTwoPos.split(" ")
+      quadList[index] = [firstPos, secondPos, strOrCharConstant, fourthPos]
     quadList[index][0] = int(quadList[index][0])
     quadList[index][1] = int(quadList[index][1])
     if quadList[index][2] == "true":
@@ -129,7 +160,7 @@ def loadQuadList(fileName):
         quadList[index][2] = float(quadList[index][2])
       except ValueError:
         quadList[index][2] = quadList[index][2]
-    
+
     quadList[index][3] = int(quadList[index][3])
 
 # quad = A quadruple in the form of a list of 4 values.
@@ -139,32 +170,27 @@ def executeQuad(quad):
   # OPER -> =
   if quad[0] == operToCode.get("="):
     if getType(quad[3]) == "int":
-      if getType(quad[2]) == "int":
-        if quad[3] >= CONST_CT_BEGIN_INT:
+      if quad[3] >= CONST_CT_BEGIN_INT:
           setValue(quad[3], quad[2])
-        else:
+      elif getType(quad[2]) == "int":
           setValue(quad[3], extractValue(quad[2]))
       elif getType(quad[2]) == "double":
-        if quad[3] >= CONST_CT_BEGIN_INT:
-          setValue(quad[3], round(quad[2]))
-        else:
           setValue(quad[3], round(extractValue(quad[2])))
       # End of quad[3] being an int.
     elif getType(quad[3]) == "double":
-      if quad[3] >= CONST_CT_BEGIN_INT:
+      if quad[3] >= CONST_CT_BEGIN_DOUBLE:
         setValue(quad[3], quad[2])
       else:
         setValue(quad[3], extractValue(quad[2]))
       # End of quad[3] being a double.
     elif getType(quad[3]) == "char":
-      if quad[3] >= CONST_CT_BEGIN_INT:
+      if quad[3] >= CONST_CT_BEGIN_CHAR:
         setValue(quad[3], quad[2])
       else:
         setValue(quad[3], extractValue(quad[2]))
       # End of quad[3] being a char.
-      # TODO: In compilation remove the single quotes.
     elif getType(quad[3]) == "bool":
-      if quad[3] >= CONST_CT_BEGIN_INT:
+      if quad[3] >= CONST_CT_BEGIN_BOOL:
         setValue(quad[3], quad[2])
       else:
         setValue(quad[3], extractValue(quad[2]))
@@ -444,7 +470,10 @@ def executeQuad(quad):
     elif getType(quad[3]) == "char":
       print(extractValue(quad[3]), end = "")
     elif getType(quad[3]) == "bool":
-      print(extractValue(quad[3]), end = "")
+      if extractValue(quad[3]):
+        print("true", end = "")
+      else:
+        print("false", end = "")
 
   # OPER -> scan
   if quad[0] == operToCode.get("scan"):
@@ -464,14 +493,16 @@ def executeQuad(quad):
 
     if quad[1] == -1:
       if getType(quad[3]) == "char":
-        setValue(quad[3], inputBuffer[inputBufferCont])
-        inputBufferCont = inputBufferCont + 1
+        if inputBufferCont < len(inputBuffer):
+          setValue(quad[3], inputBuffer[inputBufferCont])
+          inputBufferCont = inputBufferCont + 1
 
     # End Buffer Fill
 
     if quad[1] == 1:
       if getType(quad[3]) == "char":
-        setValue(quad[3], inputBuffer[inputBufferCont])
+        if inputBufferCont < len(inputBuffer):
+          setValue(quad[3], inputBuffer[inputBufferCont])
         inputBuffer = ""
         inputBufferCont = 0
 
@@ -618,6 +649,5 @@ if len(sys.argv) != 2:
 
 loadQuadList(sys.argv[1])
 while(True):
-  # print(quadList[instructionPointer])
   executeQuad(quadList[instructionPointer])
   instructionPointer = instructionPointer + 1

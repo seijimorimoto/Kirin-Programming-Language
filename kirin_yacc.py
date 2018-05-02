@@ -23,12 +23,10 @@ gInt = CONST_G_BEGIN_INT
 gDouble = CONST_G_BEGIN_DOUBLE
 gChar = CONST_G_BEGIN_CHAR
 gBool = CONST_G_BEGIN_BOOL
-gObj = CONST_G_BEGIN_OBJ
 lInt = CONST_L_BEGIN_INT
 lDouble = CONST_L_BEGIN_DOUBLE
 lChar = CONST_L_BEGIN_CHAR
 lBool = CONST_L_BEGIN_BOOL
-lObj = CONST_L_BEGIN_OBJ
 tInt = CONST_T_BEGIN_INT
 tDouble = CONST_T_BEGIN_DOUBLE
 tChar = CONST_T_BEGIN_CHAR
@@ -105,15 +103,9 @@ def getNextAddress(varType, scope, dimX, dimY):
 	# If the varType is a string, we know it is an object of a given class.
 	# "Object" type cannot be represented as a number in the typeToCode since we need to distinguish between the
 	# different classes the user defines, so we need to preserve the name of the class as the varType.
+	# We return -1 since object addresses does not matter (just the addresses of their attributes).
 	if type(varType) is str:
-		if scope == 'global':
-			newAddress = gObj
-			gObj = gObj + shiftConstant
-			return newAddress
-		elif scope == 'local':
-			newAddress = lObj
-			lObj = lObj + shiftConstant
-			return newAddress
+		return -1
 
 	# Checks the primitive types and returns the next available address.
 	typeAsStr = codeToType.get(varType)
@@ -233,12 +225,11 @@ def getNextAddress(varType, scope, dimX, dimY):
 
 # Sets the global counters of local and temporal addresses to their initial values.
 def resetLocalAndTempMemoryAddresses():
-	global lInt, lDouble, lChar, lBool, lObj, tInt, tDouble, tChar, tBool
+	global lInt, lDouble, lChar, lBool, tInt, tDouble, tChar, tBool
 	lInt = CONST_L_BEGIN_INT
 	lDouble = CONST_L_BEGIN_DOUBLE
 	lChar = CONST_L_BEGIN_CHAR
 	lBool = CONST_L_BEGIN_BOOL
-	lObj = CONST_L_BEGIN_OBJ
 	tInt = CONST_T_BEGIN_INT
 	tDouble = CONST_T_BEGIN_DOUBLE
 	tChar = CONST_T_BEGIN_CHAR
@@ -1278,7 +1269,17 @@ def p_np_mat_vec_access_2(p):
 	global ctDic
 	_ , numOfDim = quadManager.topDim()
 	stackDimSizes.pop() # Eliminate the top element in the stack, which is the dims of the last expression.
+	expType = quadManager.popType() # Eliminate the top element in the stack, which is the type of the last expression. 
 	dims = stackDimSizes.top()
+
+	# Verify that the indexing expression is of type int.
+	if expType != typeToCode.get("int"):
+		if type(expType) is str: 
+			print("Error: Cannot index a vector/matrix in line %d with type '%s'." % (p.lexer.lineno, expType))
+			sys.exit(0)
+		else:
+			print("Error: Cannot index a vector/matrix in line %d with type '%s'." % (p.lexer.lineno, codeToType.get(expType)))
+			sys.exit(0) 
 
 	quadManager.addQuad(operToCode.get("VER"), quadManager.topOper(), -1, dims[numOfDim - 1])
 	# If the current dim is not the last one...
@@ -1912,15 +1913,31 @@ def p_np_in_out_4(p):
 	'''np_in_out_4	:'''
 	operator = operToCode.get('scan')
 	address = quadManager.popOper()
+	varType = quadManager.popType()
 	dimX, dimY = stackDimSizes.pop()
-	quadManager.addQuad(operator, 0, -1, address)
 	# TODO: Update this if we want to be able to scan a complete vector/matrix.
-	if dimY != -1:
-		print("Error: Cannot use 'scan' on a matrix on line %d. Must use scan with primitive types" % (p.lexer.lineno))
-		sys.exit(0)
-	if dimX != - 1:
-		print("Error: Cannot use 'scan' on a vector on line %d. Must use scan with primitive types" % (p.lexer.lineno))
-		sys.exit(0)
+	if varType != typeToCode.get("char"):
+		if dimY != -1:
+			print("Error: Cannot use 'scan' on a matrix on line %d. Must use scan with primitive types" % (p.lexer.lineno))
+			sys.exit(0)
+		if dimX != - 1:
+			print("Error: Cannot use 'scan' on a vector on line %d. Must use scan with primitive types" % (p.lexer.lineno))
+			sys.exit(0)
+		quadManager.addQuad(operator, 0, -1, address)
+	else:
+		quadManager.addQuad(operator, 0, -1, address)
+		if dimY != -1:
+			numOfAddresses = dimX * dimY
+		elif dimX != -1:
+			numOfAddresses = dimX
+		else:
+			numOfAddresses = 1
+		numOfAddresses = numOfAddresses - 2
+
+		for i in range(numOfAddresses):
+			quadManager.addQuad(operator, -1, -1, address + i + 1)
+		if numOfAddresses >= 0:
+			quadManager.addQuad(operator, 1, -1, address + numOfAddresses + 1)
 
 def p_np_in_out_5(p):
 	'''np_in_out_5	:'''
