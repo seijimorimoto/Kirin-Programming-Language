@@ -1047,11 +1047,7 @@ def p_np_vars_6(p):
 
 #VECTOR
 def p_vector(p):
-	'''vector	: VEC ids ':' type '[' CONST_I ']' np_vector_1 vec_assgn ';' np_vector_2'''
-
-def p_vec_assgn(p):
-	'''vec_assgn	: '=' vector_exp
-								| empty'''
+	'''vector	: VEC ids ':' type '[' CONST_I ']' np_vector_1 ';' np_vector_2'''
 
 #NEURAL POINTS FOR VECTOR
 def p_np_vector_1(p):
@@ -1070,11 +1066,7 @@ def p_np_vector_2(p):
 
 #MATRIX
 def p_matrix(p):
-	'''matrix	: MAT ids ':' type '[' CONST_I ',' CONST_I ']' np_matrix_1 mat_assgn ';' np_matrix_2'''
-
-def p_mat_assgn(p):
-	'''mat_assgn	: '=' matrix_exp
-								| empty'''
+	'''matrix	: MAT ids ':' type '[' CONST_I ',' CONST_I ']' np_matrix_1 ';' np_matrix_2'''
 
 #NEURAL POINTS FOR MATRIX
 def p_np_matrix_1(p):
@@ -1102,9 +1094,7 @@ def p_assg_access(p):
 
 def p_assg_value(p):
 	'''assg_value	: create_obj
-								| expression np_assignment_3
-								| matrix_exp
-	        			| vector_exp'''		
+								| expression np_assignment_3'''		
 
 #NEURAL POINTS FOR ASSIGNMENT
 def p_np_assignment_1(p):
@@ -1210,28 +1200,6 @@ def p_np_this_2(p):
 def p_this_id(p):
 	'''this_id	:	this ID'''
 	p[0] = p[2]
-
-#VECTOR_EXP
-def p_vector_exp(p):
-	'''vector_exp	: '[' vec_elem ']' '''
-
-def p_vec_elem(p):
-	'''vec_elem	: expression vec_more'''
-
-def p_vec_more(p):
-	'''vec_more	: ',' vec_elem
-	        		| empty'''
-
-#MATRIX_EXP
-def p_matrix_exp(p):
-	'''matrix_exp	: '{' mat_elem '}' '''
-
-def p_mat_elem(p):
-	'''mat_elem	: vector_exp mat_more'''
-
-def p_mat_more(p):
-	'''mat_more	: ',' mat_elem
-							| empty'''
 
 #MAT_VEC_ACCESS
 def p_mat_vec_access(p):
@@ -1915,13 +1883,15 @@ def p_np_in_out_4(p):
 	address = quadManager.popOper()
 	varType = quadManager.popType()
 	dimX, dimY = stackDimSizes.pop()
-	# TODO: Update this if we want to be able to scan a complete vector/matrix.
+	if type(varType) is str:
+		print("Error: Cannot use 'scan' on an object on line %d." % (p.lexer.lineno))
+		sys.exit(0)
 	if varType != typeToCode.get("char"):
 		if dimY != -1:
-			print("Error: Cannot use 'scan' on a matrix on line %d. Must use scan with primitive types" % (p.lexer.lineno))
+			print("Error: Cannot use 'scan' on a non-char matrix on line %d." % (p.lexer.lineno))
 			sys.exit(0)
 		if dimX != - 1:
-			print("Error: Cannot use 'scan' on a vector on line %d. Must use scan with primitive types" % (p.lexer.lineno))
+			print("Error: Cannot use 'scan' on a non-char vector on line %d." % (p.lexer.lineno))
 			sys.exit(0)
 		quadManager.addQuad(operator, 0, -1, address)
 	else:

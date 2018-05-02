@@ -1,5 +1,5 @@
 Main {
-  public_func void fibo(n : int, arr : int[100]) {
+  public_func independent void fibo(n : int, arr : int[100]) {
     var i : int = 0;
 
     if (n > 2) {
