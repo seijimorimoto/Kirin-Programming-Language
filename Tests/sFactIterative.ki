@@ -1,0 +1,17 @@
+Main {
+	public_func independent int factorial(n : int) {
+		var fact, i : int;
+		fact = 1;
+		for(i = 1; i <= n; i = i + 1) {
+			fact = fact * i;
+		}
+
+		return fact;
+	}
+
+	public_func independent void main() {
+    var n: int;
+    scan(n);
+    print(factorial(n));
+  }
+}

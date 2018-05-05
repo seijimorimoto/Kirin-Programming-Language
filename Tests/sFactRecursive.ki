@@ -1,0 +1,15 @@
+Main {
+  public_func independent int factorial(n : int) {
+    if (n == 0) {
+      return 1;
+    }
+
+    return n * factorial(n - 1);
+  }
+
+  public_func independent void main() {
+    var n: int;
+    scan(n);
+    print(factorial(n));
+  }
+}
