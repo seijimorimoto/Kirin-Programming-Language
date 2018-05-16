@@ -1,0 +1,11 @@
+class Math {
+  public_func independent double circleArea(radius : double) {
+    return 3.1416 * radius * radius;
+  }
+}
+
+Main {
+  public_func independent void main() {
+    print(Math.area(2.0));
+  }
+}

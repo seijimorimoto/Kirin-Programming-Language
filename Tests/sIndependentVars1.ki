@@ -1,0 +1,30 @@
+class Person {
+  private var age : int;
+  private var sex : char;
+  private independent var numOfPersons : int;
+
+  constructor(age : int, sex : char) {
+    this.age = age;
+    this.sex = sex;
+    numOfPersons = numOfPersons + 1;
+  }
+
+  public_func int getNumOfPersons() {
+    return numOfPersons;
+  }
+
+  public_func void setNumOfPersons(n : int) {
+    numOfPersons = n;
+  }
+}
+
+Main {
+  public_func independent void main() {
+    var person1, person2 : Person;
+    call person1.setNumOfPersons(0);
+    person1 = new(20, 'M');
+    person2 = new(18, 'F');
+    print(person1.getNumOfPersons());
+    print(person2.getNumOfPersons());
+  }
+}

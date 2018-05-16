@@ -1,0 +1,35 @@
+class ComplexNumber {
+  public var a : int;
+  public var b : int;
+  
+  constructor(a : int, b : int) {
+    this.a = a;
+    this.b = b;
+  }
+
+  public_func void add(other : ComplexNumber) {
+    this.a = this.a + other.a;
+    this.b = this.b + other.b;
+  }
+
+  public_func independent void modify(c: ComplexNumber) {
+    c.a = 7;
+    c.b = 11;
+  }
+
+  public_func void display() {
+    print(a, '-', b);
+  }
+}
+
+Main {
+  public_func independent void main() {
+    var c1, c2 : ComplexNumber;
+    c1 = new(1, 1);
+    c2 = new(2, 2);
+    call c1.add(c2);
+    call ComplexNumber.modify(c2);
+    call c1.display();
+    call c2.display();
+  }
+}

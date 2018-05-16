@@ -4,15 +4,23 @@
 # Angel Seiji Morimoto Burgos	| A01281380
 
 from varTable import VarTable
-from varTableRow import primTypeMapper
+from kirinMappers import codeToType
 
 class FuncDirRow(object):
 
-	def __init__(self, blockType, isIndependent, isPrivate):
+	def __init__(self, blockType, isIndependent, isPrivate, isInherited, startPos):
 		self.blockType = blockType
 		self.isIndependent = isIndependent
 		self.isPrivate = isPrivate
+		self.isInherited = isInherited
+		self.startPos = startPos
 		self.varTable = VarTable()
 
 	def __str__(self):
-		return str(primTypeMapper.get(self.blockType)) + " " + str(self.isIndependent) + " " + str(self.isPrivate)
+		# The blockType will be a string if the function returns an object (the blockType will be the name of the class of the
+		# object to be returned).
+		if type(self.blockType) is str:
+			blockTypeStr = self.blockType
+		else:
+			blockTypeStr = codeToType.get(self.blockType)
+		return blockTypeStr + " " + str(self.isIndependent) + " " + str(self.isPrivate) + " " + str(self.startPos)

@@ -1,0 +1,5 @@
+Main {
+  public_func independent void main() {
+    mat myMat : int[100, 100];
+  }
+}

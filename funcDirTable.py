@@ -4,18 +4,19 @@
 # Angel Seiji Morimoto Burgos	| A01281380
 
 from funcDirRow import FuncDirRow
-from varTableRow import primTypeMapper
+from kirinMappers import typeToCode
+from kirinMappers import codeToType
 
 class FuncDirTable(object):
 
 	def __init__(self):
 		self.table = {}
 
-	def has(self, blockID, blockParams):
-		return (blockID, blockParams) in self.table
+	def has(self, blockID, blockParams, blockDimsX, blockDimsY):
+		return (blockID, blockParams, blockDimsX, blockDimsY) in self.table
 
-	def add(self, blockID, blockParams, funcDirRow):
-		self.table[(blockID, blockParams)] = funcDirRow
+	def add(self, blockID, blockParams, blockDimsX, blockDimsY, funcDirRow):
+		self.table[(blockID, blockParams, blockDimsX, blockDimsY)] = funcDirRow
 		# Print for debugging
 		if blockParams is not None:
 			if len(blockParams) == 0:
@@ -23,8 +24,10 @@ class FuncDirTable(object):
 			else:
 				blockParamsStr = "("
 				for param in blockParams:
-					dim, primType = param
-					blockParamsStr = blockParamsStr + "(%d, %s), " % (dim, primTypeMapper.get(primType))
+					if type(param) is str:
+						blockParamsStr = blockParamsStr + param + ", "
+					else:
+						blockParamsStr = blockParamsStr + codeToType.get(param) + ", "
 				blockParamsStr = list(blockParamsStr.strip())
 				blockParamsStr[len(blockParamsStr) - 1] = ')'
 				blockParamsStr = "".join(blockParamsStr)
@@ -32,5 +35,8 @@ class FuncDirTable(object):
 			blockParamsStr = "None"
 		print("created function with:", blockID, blockParamsStr, funcDirRow)
 	
-	def getVarTable(self, blockID, blockParams):
-		return self.table[(blockID, blockParams)].varTable
+	def getFuncDirRow(self, blockId, blockParams, blockDimsX, blockDimsY):
+		return self.table[(blockId, blockParams, blockDimsX, blockDimsY)]
+
+	def getVarTable(self, blockID, blockParams, blockDimsX, blockDimsY):
+		return self.table[(blockID, blockParams, blockDimsX, blockDimsY)].varTable

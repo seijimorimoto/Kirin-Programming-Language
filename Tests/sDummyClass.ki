@@ -9,10 +9,10 @@ class DummyClass {
   }
 
   public_func void setGrade(grade : Grade) {
-    this.grade = grade.value;
+    //this.grade = grade.value;
   }
 
-  public_func double calculateAverage(list : int[], n : int)
+  public_func double calculateAverage(list : int[5], n : int)
   {
     var i, average : int = 0;
     for (i = 1; i <= n; i = i + 1) {
@@ -21,4 +21,8 @@ class DummyClass {
     return average / n;
   }
 
+}
+
+Main {
+  public_func void main() {}
 }

@@ -1,0 +1,45 @@
+class Car{
+  constructor () {
+	  print("Class Car");
+  }
+  
+  public_func void vehicleType() {
+	  print("Vehicle Type: Car");
+  }
+}
+
+class Maruti inherits Car{
+  constructor () {
+	  print("Class Maruti");
+  }
+
+  public_func void brand() {
+	  print("Brand: Maruti");
+  }
+  
+  public_func void speed() {
+	  print("Max: 90Kmph");
+  }
+}
+
+class Maruti800 inherits Maruti{
+
+  constructor() {
+	  print("Maruti Model: 800");
+  }
+  
+  public_func void speed() {
+    print("Max: 80Kmph");
+  }
+}
+
+Main {
+  public_func independent void main()
+  {
+	  var obj : Maruti800;
+    obj = new();
+	  call obj.vehicleType();
+	  call obj.brand();
+	  call obj.speed();
+  }
+}

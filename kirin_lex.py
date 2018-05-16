@@ -3,12 +3,13 @@
 # Jose Juan Zavala Iglesias		| A01281362
 # Angel Seiji Morimoto Burgos	| A01281380
 
+import sys
 import ply.lex as lex
 
 reservedWords = { 
   'class': 'CLASS',
+  'Main': 'MAIN',
   'inherits': 'INHERITS',
-  'import': 'IMPORT',
   'public': 'PUBLIC',
   'private': 'PRIVATE',
   'public_func': 'PUBLIC_FUNC',
@@ -32,7 +33,8 @@ reservedWords = {
   'int': 'INT',
   'double': 'DOUBLE',
   'char': 'CHAR',
-  'bool': 'BOOL'
+  'bool': 'BOOL',
+  'call': 'CALL'
 }
 
 tokens = ['ID', 
@@ -99,7 +101,7 @@ def t_CONST_STRING(t):
 	return t
 
 def t_CONST_CHAR(t):
-	r'\’[^\’]\’'
+	r'\'[^\']\''
 	return t
 
 def t_CONST_BOOL(t):
@@ -114,6 +116,7 @@ def t_ID(t):
 def t_error(t):
 	print("Line # %d: Illegal character '%s'" % (t.lexer.lineno, t.value[0]))
 	t.lexer.skip(1)
+	sys.exit(0)
 
 def t_newline(t):
   r'\n+'

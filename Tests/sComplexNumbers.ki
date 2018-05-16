@@ -1,0 +1,21 @@
+class ComplexNumber {
+  public var a : int;
+  public var b : int;
+  
+  constructor(a : int, b : int) {
+    this.a = a;
+    this.b = b;
+  }
+
+  public_func void display() {
+    print(a, "+", b, "i");
+  }
+}
+
+Main {
+  public_func independent void main() {
+    var cNum : ComplexNumber;
+    cNum = new (1, 5);
+    call cNum.display();
+  }
+}

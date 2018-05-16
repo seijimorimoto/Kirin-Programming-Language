@@ -1,0 +1,21 @@
+Main {
+  public_func independent void fibo(n : int, arr : int[100]) {
+    var i : int = 0;
+
+    if (n > 2) {
+      for (i = 2; i < n; i = i + 1) {
+        arr[i] = arr[i - 1] + arr[i - 2];
+      }
+    }
+  }
+
+  public_func independent void main() {
+    var n : int;
+    vec arr : int[100];
+    arr[0] = 1;
+    arr[1] = 1;
+    scan(n);
+    call fibo(n, arr);
+    print(arr[n - 1]);
+  } 
+}

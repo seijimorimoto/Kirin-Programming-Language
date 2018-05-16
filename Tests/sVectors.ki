@@ -1,0 +1,26 @@
+Main {
+  public_func void main() {
+    //var i : int;
+    //vec myVec1 : int[3];
+    //vec myVec2 : int[5];
+    //vec myVec3 : int[7];
+
+    //myVec1[1] = myVec2[2] + myVec3[4];
+
+    var i, temp : int;
+    vec myVec1 : int[10];
+    for (i = 0; i < 10; i = i + 1) {
+      scan(temp);
+      myVec1[i] = temp;
+    }
+
+    for (i = 0; i < 10; i = i + 1) {
+      print(myVec1[i]);
+    }
+    
+    //scan(temp);
+    //myVec1[1] = temp;
+    //myVec1[0] = 22;
+    //print(myVec1[0], myVec1[1]);
+  }
+}

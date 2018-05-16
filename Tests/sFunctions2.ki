@@ -1,0 +1,26 @@
+Main {
+  public var i, j : int;
+
+  public_func void uno(a : int, b : int) {
+    var i : int;
+    i = a*2;
+    if (i < a + 4) {
+      call uno(a + 1, b);
+    }
+    print(i);
+  }
+
+  public_func int dos(b : int) {
+    b = b*i + j;
+    return b*2;
+  }
+
+  public_func void main() {
+    i = 2;
+    j = i*2 - 1;
+    call uno(j, j);
+    call dos(i);
+    print(i + dos(i + j));
+    call uno(i, dos(i));
+  }
+}

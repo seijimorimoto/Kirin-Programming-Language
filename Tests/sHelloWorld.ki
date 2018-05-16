@@ -1,5 +1,16 @@
-class HelloWorld {
+Main {
     public_func independent void main() {
-        print("Hello World\n");
+        //print("Hello World\n");
+        //var boolean : bool;
+        //boolean = true;
+
+        //print(boolean + true);
+        //if(boolean) {
+        //	print(20);
+        //}
+
+        var c : char;
+        scan(c);
+        print(c);
     }
 }

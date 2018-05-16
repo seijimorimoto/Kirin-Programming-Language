@@ -1,0 +1,14 @@
+Main {
+  public_func void main() {
+    var x, y, z: int;
+
+    x = 1;
+    y = 2;
+
+    if (x < y) {
+      print(x);
+    } else {
+      print(y);
+    }
+  }
+}

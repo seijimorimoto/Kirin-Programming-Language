@@ -1,0 +1,14 @@
+Main {
+  public_func void main() {
+    var x, res: int = 0;
+    while (x < 5) {
+      var y : int = 0;
+      x = x + 1;
+      while (y < 5) {
+        y = y + 1;
+      }
+      res = res + y;
+    }
+    print(res);
+  }
+}

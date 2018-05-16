@@ -1,0 +1,42 @@
+class InnerClass {
+  public var num3 : int;
+
+  public_func void setNum3(num3 : int) {
+    this.num3 = num3;
+  }
+}
+
+class Object {
+  public var num1, num2 : int;
+  public var innerObj : InnerClass;
+
+  constructor() {
+    num1 = 0;
+    num2 = 0;
+    innerObj.num3 = 0;
+  }
+
+  public_func void setNum1(num1 : int) {
+    this.num1 = num1;
+  }
+
+  public_func void setNum3(num3 : int) {
+    call innerObj.setNum3(num3);
+  }
+
+  public_func int getNum3() {
+    return innerObj.num3;
+  }
+}
+
+Main {
+  public_func independent void main() {
+    var obj1, obj2 : Object;
+    call obj1.setNum3(1);
+    call obj2.setNum3(2);
+    obj1 = new();
+    obj2 = new();
+    print(obj1.getNum3());
+    print(obj2.getNum3());
+  }
+}

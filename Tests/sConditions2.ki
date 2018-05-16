@@ -1,0 +1,26 @@
+Main {
+  public_func void myFunction() {
+    var x, y, z, w, v: int;
+    
+    scan(x);
+    scan(y);
+    scan(z);
+    scan(w);
+    scan(v);
+
+    if (x < y) {
+      print(x);
+    } elseif (x < z) {
+      print(z);
+    } elseif (x < w) {
+      print(w);
+    } else {
+      print(y);
+    }
+    print(v);
+  }
+
+  public_func independent void main() {
+    myFunction();
+  }
+}
