@@ -8,7 +8,7 @@ class ComplexNumber {
   }
 
   public_func void display() {
-    print(a, " + ", b, "i");
+    print(a, "+", b, "i");
   }
 }
 
@@ -16,6 +16,6 @@ Main {
   public_func independent void main() {
     var cNum : ComplexNumber;
     cNum = new (1, 5);
-    cNum.display();
+    call cNum.display();
   }
 }

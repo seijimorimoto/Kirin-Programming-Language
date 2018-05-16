@@ -33,7 +33,8 @@ reservedWords = {
   'int': 'INT',
   'double': 'DOUBLE',
   'char': 'CHAR',
-  'bool': 'BOOL'
+  'bool': 'BOOL',
+  'call': 'CALL'
 }
 
 tokens = ['ID', 

@@ -5,7 +5,7 @@ Main {
     var i : int;
     i = a*2;
     if (i < a + 4) {
-      uno(a + 1, b);
+      call uno(a + 1, b);
     }
     print(i);
   }
@@ -18,8 +18,9 @@ Main {
   public_func void main() {
     i = 2;
     j = i*2 - 1;
-    uno(j, j);
+    call uno(j, j);
+    call dos(i);
     print(i + dos(i + j));
-    uno(i, dos(i));
+    call uno(i, dos(i));
   }
 }

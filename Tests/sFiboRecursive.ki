@@ -1,0 +1,15 @@
+Main {
+  public_func independent int fibo(n : int) {
+    if(n <= 2) {
+      return 1;
+    }
+
+    return fibo(n - 1) + fibo(n - 2);
+  }
+
+  public_func independent void main() {
+    var n : int;
+    scan(n);
+    print(fibo(n));
+  } 
+}

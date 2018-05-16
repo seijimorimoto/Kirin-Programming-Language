@@ -1,0 +1,57 @@
+class Calculation {
+  private var z : int;
+
+  public_func void addition(x : int, y : int) {
+    z = x + y;
+  }
+
+  public_func void substraction(x : int, y : int) {
+    z = x - y;
+  }
+
+  public_func int getResult() {
+    return z;
+  }
+}
+
+class Calculation2 inherits Calculation {
+  public_func void multiplication(x : int, y : int) {
+    z = x * y;
+  }
+
+  public_func void addition(x : int, y : int) {
+    z = 0;
+  }
+}
+
+Main {
+  public_func independent void main() {
+    var a, b, c, d : int;
+    var calculator : Calculation;
+    var calculator1, calculator2 : Calculation2;
+    a = 20;
+    b = 10;
+    c = 5;
+    d = 4;
+    call calculator.addition(a, b);
+    call calculator1.addition(a, b);
+    call calculator2.addition(c, d);
+    print(calculator.getResult());
+    print(calculator1.getResult());
+    print(calculator2.getResult());
+    print("");
+    
+    call calculator.substraction(a, b);
+    call calculator1.substraction(a, b);
+    call calculator2.substraction(c, d);
+    print(calculator.getResult());
+    print(calculator1.getResult());
+    print(calculator2.getResult());
+    print("");
+
+    call calculator1.multiplication(a, b);
+    call calculator2.multiplication(c, d);
+    print(calculator1.getResult());
+    print(calculator2.getResult());
+  }
+}

@@ -1,0 +1,11 @@
+Main {
+  public_func independent void main() {
+    vec str : char[1];
+    var i : int = 0;
+    scan(str);
+    
+    for(i = 0; i < 1; i = i + 1) {
+      print(str[i]);
+    }
+  }
+}

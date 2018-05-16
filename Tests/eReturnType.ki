@@ -1,0 +1,10 @@
+Main {
+  public_func int doSomething() {
+    var pi : double = 3.1416;
+    return pi;
+  }
+
+  public_func independent void main() {
+    call doSomething();
+  }
+}

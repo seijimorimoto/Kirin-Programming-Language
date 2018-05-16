@@ -1,5 +1,5 @@
 Main {
-  public_func void fibo(n : int, arr : int[100]) {
+  public_func independent void fibo(n : int, arr : int[100]) {
     var i : int = 0;
 
     if (n > 2) {
@@ -15,7 +15,7 @@ Main {
     arr[0] = 1;
     arr[1] = 1;
     scan(n);
-    fibo(n, arr);
+    call fibo(n, arr);
     print(arr[n - 1]);
   } 
 }

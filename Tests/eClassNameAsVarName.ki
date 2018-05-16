@@ -1,0 +1,20 @@
+class Object {
+
+}
+
+class Patito {
+  public independent var estatica1 : int;
+  public var x, y, z : int;
+  
+  constructor() {
+      x = 1;
+      y = 1;
+      z = 1;
+  }
+}
+
+Main {
+  public_func independent void main() {
+    var Object : Patito;
+  }
+}

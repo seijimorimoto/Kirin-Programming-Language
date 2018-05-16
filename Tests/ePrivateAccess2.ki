@@ -1,0 +1,23 @@
+class Numbers {
+  public var num1, num2, num3 : int;
+  private var secretNum : int;
+
+  private_func void generateSecretNum() {
+    secretNum = (num1 + num2) % num3;
+  }
+
+  constructor(num1 : int, num2 : int, num3 : int) {
+    this.num1 = num1;
+    this.num2 = num2;
+    this.num3 = num3;
+    call generateSecretNum();
+  }
+}
+
+Main {
+  public_func independent void main() {
+    var number : Numbers;
+    number = new(1, 2, 3);
+    call number.generateSecretNum();
+  }
+}

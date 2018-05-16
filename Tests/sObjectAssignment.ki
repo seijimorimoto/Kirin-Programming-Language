@@ -1,0 +1,34 @@
+class InnerClass {
+  public var num3 : int;
+}
+
+class Object {
+  public var num1, num2 : int;
+  public var innerObj : InnerClass;
+
+  constructor() {
+    num1 = 0;
+    num2 = 0;
+    innerObj.num3 = 0;
+  }
+
+  public_func void display() {
+    print(num1,"-", num2, "-", innerObj.num3);
+  }
+}
+
+Main {
+  public_func independent void main() {
+    var obj1, obj2 : Object;
+    var innerObj : InnerClass;
+
+    obj1 = new();
+    obj2 = new();
+    innerObj = obj1.innerObj;
+    innerObj.num3 = 5;
+    innerObj = obj2.innerObj;
+    innerObj.num3 = 7;
+    call obj1.display();
+    call obj2.display();
+  }
+}

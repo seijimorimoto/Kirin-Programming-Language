@@ -4,8 +4,8 @@
 # Angel Seiji Morimoto Burgos	| A01281380
 
 from funcDirRow import FuncDirRow
-from semanticCube import keywordMapper
-from semanticCube import invKeywordMapper
+from kirinMappers import typeToCode
+from kirinMappers import codeToType
 
 class FuncDirTable(object):
 
@@ -24,7 +24,10 @@ class FuncDirTable(object):
 			else:
 				blockParamsStr = "("
 				for param in blockParams:
-					blockParamsStr = blockParamsStr + invKeywordMapper.get(param) + ", "
+					if type(param) is str:
+						blockParamsStr = blockParamsStr + param + ", "
+					else:
+						blockParamsStr = blockParamsStr + codeToType.get(param) + ", "
 				blockParamsStr = list(blockParamsStr.strip())
 				blockParamsStr[len(blockParamsStr) - 1] = ')'
 				blockParamsStr = "".join(blockParamsStr)

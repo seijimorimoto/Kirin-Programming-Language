@@ -1,5 +1,5 @@
 Main {
-  public_func bool search(left : int, right : int, value : int, arr : int[10])
+  public_func independent bool search(left : int, right : int, value : int, arr : int[10])
   {
     var middle : int;
     middle = (left + right) / 2;
@@ -23,10 +23,11 @@ Main {
     vec arr : int[10];
     var i, n : int;
     for (i = 0; i < 10; i = i + 1) {
-      arr[i] = i;
+      scan(arr[i]);
     }
-
+    print("------");
     scan(n);
+    print("------");
     print(search(0, 9, n, arr));
   }
 }

@@ -21,9 +21,8 @@ Main {
   public_func void main() {
     a = 3;
     b = a + 1;
-    print(a, b);
     f = 3.14;
-    call dos(a + b * 2, b, f * 3);
-    print(a, b, f * 2 + 1);
+    print(dos(a + b * 2, b, f * 3));
+    
   }
 }
